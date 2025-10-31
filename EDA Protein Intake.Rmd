@@ -1,0 +1,462 @@
+---
+title: "EDA Lifelines Protein Intake"
+author: "Yamila Timmer"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    fig_caption: false
+    lightbox: true
+    gallery: true
+    toc_depth: 4
+    embed_fonts: true
+    use_bookdown: true
+    mathjax: "rmdformats"
+    highlight: "tango"
+    default_style: "light"
+    downcute_theme: "default"
+  
+---
+
+```{r, warning = FALSE, message = FALSE}
+# Load libraries
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(ggforce)
+library(heatmaply)
+library(UpSetR)
+library(naniar)
+```
+
+# A first look at the data
+
+```{r}
+# Reading the data
+data <- read.csv("Lifelines Public Health - Synthetic Dataset - 2025/dataset/Lifelines Dataset.csv", header = TRUE, na.strings=c("NA","NaN", "")) # Convert NA, NaN and "" (blank field) to NA for uniformity
+```
+
+The data I will be using is a synthetic dataset from the LifeLines project, the data contains `r nrow(data)` rows, which all represent participants of LifeLines. There are `r ncol(data)` columns which each represent a different trait that the participants have been measured on. In total the data reflects three different assessments (marked with T_1, T_2, T_3), Some participants were only present for the first one or two assessments, which is reflected in missing values (NA) in columns such as age. For this reason I have chosen to select only the T_1 columns, as they do not have as many missing values.
+
+As this year’s Aletta’s Regional Year Challenge is centered around the main question: **"how might we improve the healthy food environment of citizens in the Northern Netherlands?"**, it is important to look into some nutritional factor, in order to *"explore how diet, weight trends, neighborhood infrastructure, and social factors interact"* [1]. The dataset contains many interesting columns for this, I will make a subset out of these columns. I would specifically like to look into protein consumption in citizens of North-Netherlands (Drenthe, Groningen, Friesland). Some general factors I could include are age, gender, body weight, body height, net income and educational level. To be able to answer research questions regarding protein intake, I add two additional columns, containing the daily intake of plant protein and animal protein, both in grams. 
+
+Below is an overview of all columns I have selected in my subset.
+
+
+| Variable                             | Description                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------ |
+| `bodyweight_kg_all_m_1_T1_M`         | Weight in kg at baseline (T1)                                                        |
+| `gender_T1_M`                        | Gender (1=male, 2=female)                                                            |
+| `age_1a_q_1`                         | Age at T1 (in months)                                                                |
+| `animalprotein_intake_adu_c_1_T1_QF` | Total animal protein intake in g/day (FFQ heart)                                     |
+| `plantprotein_intake_adu_c_1_T1_QF`  | Total plant protein intake in g/day (FFQ heart)                                      |
+| `degree_highest_adu_q_1_T1_Q1`       | What is the highest level of education you have finished?                            |
+| `bodylength_cm_all_m_1_T1_M`         | Height in cm at baseline (T1)                                                        |
+| `income_net_adu_q_1_v2_T1_Q1`        | What is the net income per month? (V2)                                               |
+
+
+```{r}
+# Selecting columns of interest
+protein_data <- data %>%
+  select(animalprotein_intake_adu_c_1_T1_QF, plantprotein_intake_adu_c_1_T1_QF,
+         bodyweight_kg_all_m_1_T1_M, gender_T1_M, 
+         age_1a_q_1, degree_highest_adu_q_1_T1_Q1,
+         bodylength_cm_all_m_1_T1_M, 
+         gender_T1_M, income_net_adu_q_1_v2_T1_Q1)
+
+```
+
+As the names of the columns are quite long and thus a bit inconvenient to work with, I will rename the columns.
+```{r}
+protein_data <- protein_data %>%
+  rename(educational_level = degree_highest_adu_q_1_T1_Q1,
+         body_weight = bodyweight_kg_all_m_1_T1_M,
+         body_length = bodylength_cm_all_m_1_T1_M,
+         age = age_1a_q_1,
+         income_group = income_net_adu_q_1_v2_T1_Q1,
+         gender = gender_T1_M,
+         plantprotein_intake = plantprotein_intake_adu_c_1_T1_QF,
+         animalprotein_intake = animalprotein_intake_adu_c_1_T1_QF)
+```
+
+Below, with `glimpse` we get a general overview of the data. We see that the data consists of two types of data:
+
+- **Categorical data**: gender, educational_level, income_group
+- **Continuous data**: animalprotein_intake, plantprotein_intake, body_weight, age, body_length
+
+```{r}
+glimpse(protein_data)
+```
+
+A general overview of the continous data, we can get using the `summary` function. 
+
+```{r}
+continous_data <- protein_data %>%
+  select(animalprotein_intake, plantprotein_intake, body_weight, age, body_length)
+
+summary(continous_data)
+```
+From the summary above, we can clearly see that the age variable is expressed in months and the body_length variable is expressed in centimeters, I convert these for easier interpreting from the figures I will be generating.
+```{r}
+continous_data$age <- continous_data$age/12 # Convert months to years
+continous_data$body_length <- continous_data$body_length/100 # Convert centimeters to meters
+summary(continous_data)
+
+# Also convert in main dataset
+protein_data$age <- protein_data$age/12 # Convert months to years
+protein_data$body_length <- protein_data$body_length/100 # Convert centimeters to meters
+```
+
+After converting age and body_length, we can see that the minimal age is `17.67`, the maximum age is `93` and the median is `44.83` (I will be considering median above mean, because median is better resistant against outliers). Gender is divided in categories, so using summary does not give us further information. The bodylength seems to be at minimum `1.14` metres and at maximum `2.10` metres, the median is `1.745`. As for the bodyweight, the minimum seems to be `39` kilos and the maximum `200` kilos, the median is `78.00` kilos. Notably animalprotein intake is a lot higher than plant protein intake. The median for animal protein intake is `40.88` gram per day, while it is `28.93` gram daily for plant protein. The highest animal protein intake is `272.5` gram daily and for plant protein the highest is `169.61` gram daily. For both types of protein intake the minimal value seems to be 0, which means additional imputing or deleting of missing values might need to be done. As it would be impossible to live off of 0 gram protein daily.
+
+Daily protein intake is divided over 2 columns, one for plant protein and one for animal protein, I will make a new column showing the daily intake, to make it easier to visualize the total daily protein intake.
+
+```{r}
+# Making new column with total intake
+protein_data$total_protein_intake_daily <- protein_data$animalprotein_intake + protein_data$plantprotein_intake
+
+```
+
+Now I will take a look at the missing values in the columns of interest:
+```{r}
+gg_miss_var(protein_data) + 
+  ylab("N. of missing values")
+
+```
+
+**Observations**:
+
+- Most columns/variables do not have many missing values, all variables except for income_group have < 250 missing values, out of a total of `r nrow(protein_data)` participants
+- Income_group has the most missing values, still the amount of missing values is not very high. The amount of rows that have missing values for income_group is: `r sum(is.na(protein_data$income_group))` out of a total of `r nrow(protein_data)` rows.
+
+
+## General variables
+### Gender
+
+To get a better look at the gender column we can use `unique` to see all possible options. Below we can see there are the following options: "FEMALE", "MALE" and NA. In total there are 42 NA's, the NA's could be from people that either did not want to disclose a gender or it could be some kind of logging mistake. Depending on what our research question will be we might have to remove those values, but only if we would be looking at some kind of difference between genders.
+
+```{r}
+# View all gender options
+unique(protein_data$gender)
+
+# See how many entries have NA in the gender column for 1st assessment
+sum(is.na(protein_data$gender))
+
+```
+
+To view the gender distribution, we can use a barplot. First we remove the NA's as they will not show anything in the barplot, as there are so few observations. In the barplot we can see there are ~ 11000 more female participants than male. There are `r nrow(protein_data[protein_data$gender == 'FEMALE', ])` female participants and `r nrow(protein_data[protein_data$gender == 'MALE', ])` male participants. If we were to look into any gender differences we might have to normalize this so that the difference in quantity does not affect our results. For now I will remove the NA's, as there are only 42 and it is a bit tedious when trying to visualize the data.
+
+```{r}
+# Keep only male/female for better visualization, as NA will take space in the bar plot but not actually show anything because it has so few observations
+protein_data <- protein_data %>%
+  dplyr::filter(gender == "FEMALE" | gender == "MALE")
+
+
+ggplot(protein_data, aes(x=gender)) + geom_bar(aes(fill = gender)) +
+  ggtitle("Gender Distribution in LifeLines dataset, 1st assessment") + 
+  xlab("Gender")
+```
+
+### Age
+Next we will take a closer look at the age distribution, with some density plots. In the first plot you can see the data is somewhat skewed to the left, meaning there was an abundance of people younger than the median age in the first assessment. It is also notable how the density quickly goes down after ~age = 63 (shown with red line), meaning there were not many participants with an age higher than that. 
+
+```{r}
+# Visualize age distribution
+ggplot(protein_data, aes(x = age)) +
+geom_density() + geom_vline(xintercept = 63, linetype="dashed", 
+                color = "red") +
+  xlab("Age in years") + 
+  ggtitle("Age Distribution in LifeLines dataset, 1st assessment")
+
+```
+
+Next we visualize the ages again, but this time split out between the two genders, to get a look at whether the age distribution is similar for both genders. From the plot, the distribution seems to be very similar, the distribution of FEMALE and MALE is almost fully overlapping.
+
+```{r}
+# Visualize age distribution/gender
+ggplot(data = protein_data) + 
+  geom_density(mapping = aes(x = age, 
+                             color = gender, 
+                             fill = gender), alpha = 0.2) + 
+  xlab("Age in years") + 
+  ggtitle("Age distribution per gender")
+```
+
+
+## Protein Intake
+
+Looking at the protein columns `plantprotein_intake_adu_c_1_T1_QF` and `animalprotein_intake_adu_c_1_T1_QF`, there seem to be `r nrow(protein_data[protein_data$plantprotein_intake == 0, ])` values that are 0 for daily plant protein intake and `r nrow(protein_data[protein_data$animalprotein_intake == 0, ])` values that are 0 for daily animal protein intake. The difference could be explained by some people being vegetarian or vegan. There also seem to be a lot of non-zero low values, to the point where they are so low that it does not seem viable to live off that low amount of protein intake. In the two density plots below it is clear that the data does seem to have a normal distribution, but there seems to be a bit of noise at the start and the tail seems to be very long. I think it would be wise to cut the data off from a minimum and maximum amount, removing outliers.
+
+```{r}
+# Visualize age distribution/gender
+ggplot(data = protein_data) + 
+  geom_density(mapping = aes(x = plantprotein_intake)) + 
+  xlab("Daily plant protein intake (grams)")
+```
+
+```{r}
+# Visualize age distribution/gender
+ggplot(data = protein_data) + 
+  geom_density(mapping = aes(x = total_protein_intake_daily)) + 
+  xlab("Daily animal protein intake (grams)")
+```
+```{r}
+
+protein_data_filtered <- protein_data %>%
+  subset(protein_data$total_protein_intake_daily > 20 & protein_data$total_protein_intake_daily < 180)
+# Visualize age distribution/gender
+ggplot(data = protein_data_filtered) + 
+  geom_density(mapping = aes(x = total_protein_intake_daily)) + 
+  xlab("Daily animal protein intake (grams)")
+```
+
+In order to get a better view on the total grams of protein being consumed daily, I make a new column (`total_protein_intake_daily`) that sums the values of plantprotein_intake and animalprotein_intake.
+
+The recommended protein intake for a healthy adult with minimal physical activity is 0.8g protein per kg body weight per day. European Food Safety Authority also established its population reference intake for protein as 0.83 g/kg BW/day for all adults [2]. We can visualize how many LifeLines participants meet this minimal requirement by comparing the total daily intake to a new column which holds the daily_minimal_required_intake, which is 0.83g x kg body weight.
+
+There are `r sum(is.na(protein_data$body_weight))` missing values for body weight, I remove these rows as it is not possible to calculate the minimal recommended protein intake. There are `r sum(is.na(protein_data$body_length))` missing values for body height, I also remove these as it will not be possible to calculate BMI values later.
+
+```{r}
+protein_data_filtered <- protein_data_filtered %>%
+  filter(!is.na(body_weight))%>%
+  filter(!is.na(body_length))
+```
+
+```{r}
+# Adding new daily required intake
+protein_data_filtered$daily_minimal_required_intake <- protein_data_filtered$body_weight * 0.83
+
+# Add protein deficiency variable, which is true if total intake < minimal required intake
+protein_data_filtered$protein_deficiency <- ifelse(protein_data_filtered$total_protein_intake_daily < protein_data_filtered$daily_minimal_required_intake, TRUE, FALSE)
+  
+# Add column with color info
+protein_data_filtered$col = ifelse(protein_data_filtered$total_protein_intake_daily < protein_data_filtered$daily_minimal_required_intake,'red', 'black')
+
+```
+
+
+```{r}
+ggplot(protein_data_filtered, aes(x=total_protein_intake_daily, y=daily_minimal_required_intake, col = col)) + 
+  geom_point() + 
+  scale_color_identity() +
+  xlab("Total daily protein intake in grams") +
+  ylab("Daily minimal required protein intake in grams")
+```
+
+As we can see from the plot, a lot of participants do not seem to meet the requirement for even the minimal required protein intake. The daily minimal required protein intake is meant for people with a (mostly) sedentary lifestyle. Meaning that if someone has a more active lifestyle, their protein intake also needs to be higher, so potentially even more participants do not meet their required protein intake. From literature it does not seem like there are any clear recommendations for intake for people with a more active lifestyle, but we can assume that any people below the minimal recommended intake levels could be protein deficient. Now that we know that a lot of people in north-Netherlands do not meet protein requirements, we can look into what factors correlate with this. Questions such as:
+
+- Is protein deficiency more common in certain age groups?
+- Is protein deficiency more common in certain BMI groups? (e.g. underweight/overweight)
+- Is protein deficiency more common in certain educational backgrounds?
+- Is protein deficiency more common in certain income groups?
+
+
+
+```{r}
+# Compare various continuous variables that are related to protein intake and general data such as weight and age
+ggplot(protein_data_filtered, aes(x = .panel_x, 
+                         y = .panel_y, 
+                         fill = protein_deficiency, 
+                         colour = protein_deficiency)) + 
+  geom_point(size = 0.5, , alpha = 0.6) + 
+  facet_matrix(vars(age, body_weight, body_length)) + 
+  scale_color_hue(direction = -1)
+```
+
+**Observations**:
+
+- Protein deficiency seems correlated with weight and length, where weight is likely correlated with height and deficiency is more seen in higher BMI, as higher weight means the minimal daily intake is higher
+- Protein deficiency does not seem correlated with age
+
+
+#### Exploration across age
+```{r}
+ggplot(protein_data_filtered, aes(x=gender, y=age, fill = protein_deficiency)) +
+  geom_violin() +
+  xlab("Gender") + 
+  ylab("Age in years")
+
+
+```
+
+**Observations**:
+
+- The age distribution for participants with and participants without protein deficiency is near identical, meaning age likely does not play a (big) role in protein deficiency
+
+
+#### Exploration across gender
+
+```{r}
+ggplot(protein_data_filtered, aes(x = gender, fill = protein_deficiency)) + 
+  geom_bar(position = "fill") +
+  xlab("Gender") +
+  ylab("Distribution among participants") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_manual(values = c("#00BFC4", "#F8766D"))
+
+```
+
+**Observations**:
+
+- Seems to be only a very small difference in protein deficiency occurrence between male and female participants, so gender does not seem to play a big role
+
+
+
+#### Exploration across BMI category
+
+
+In order to see if BMI group plays a role in protein deficiency, I first have to add a BMI column, calculated by dividing body weight in kgs by height in meters squared. Each of the BMI values is then assigned a category label.
+
+```{r}
+protein_data_filtered <- protein_data_filtered %>%
+  mutate(
+    BMI = body_weight / ((body_length)^2),
+    BMI_group = case_when(
+      BMI < 18.5 ~ "Underweight",
+      BMI < 25 ~ "Normal weight",
+      BMI < 30 ~ "Overweight",
+      TRUE ~ "Obese"
+    )
+  )
+
+```
+
+
+```{r}
+ggplot(protein_data_filtered, aes(x = factor(BMI_group, level = c("Underweight", "Normal weight", "Overweight", "Obese")), fill = protein_deficiency)) + 
+  geom_bar(position = "fill") +
+  xlab("BMI Category") +
+  ylab("Number of people") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_manual(values = c("#00BFC4", "#F8766D"))
+
+
+```
+**Observations**:
+
+- There seems to be a clear relation between protein deficiency occurence and BMI group, where it is very uncommon in underweight participants and keeps getting more common the 'higher' the BMI group, with almost 75% of obese participants being protein deficient.
+
+
+```{r}
+#Average total intake education/protein
+ggplot(protein_data_filtered, aes(x=BMI_group, y=total_protein_intake_daily, fill = BMI_group)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + xlab("BMI category") + ylab("Daily total protein intake in grams") + theme(legend.position = "none")
+
+```
+
+- Interestingly, daily protein intake in grams seems to be equal across the different BMI groups, however for the obese,overweight category protein intake should be higher, as protein requirements are measured per kg body weight
+
+
+#### Exploration across educational level
+
+For exploring protein deficiency across educational level, I will use the data column which holds the highest acquired degree of the participant (`degree_highest_adu_q_1_T1_Q1`). I rename the levels so they become more descriptive, and remove the rows with NA's, as there are only 170 missing values, out of a total of 71191 values.
+
+```{r}
+protein_data_filtered$educational_level <- factor(
+  protein_data_filtered$educational_level,
+  levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9),
+  labels = c("No education", "Primary education", "Lower\n secondary education", "Junior secondary
+             education", "Secondary education", "Pre-university \n secondary education", "Higher vocational
+             education", "University education","Other")
+)
+
+summary(protein_data_filtered$educational_level)
+
+protein_data_filtered <- protein_data_filtered %>%
+  filter(!is.na(educational_level))
+
+```
+
+
+```{r}
+#Average total intake education/protein
+ggplot(protein_data_filtered, aes(x=educational_level, y=total_protein_intake_daily, fill = educational_level)) +
+  geom_boxplot() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + xlab("Highest obtained degree") + ylab("Daily total protein intake in grams") + theme(legend.position = "none")
+
+```
+
+**Observations**:
+
+- There seems to be no clear difference in daily protein intake per educational level..
+
+
+```{r}
+ggplot(protein_data_filtered, aes(x = educational_level, fill = protein_deficiency)) + 
+  geom_bar(position = "fill") +
+  xlab("Highest obtained degree") +
+  ylab("Number of people") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_manual(values = c("#00BFC4", "#F8766D"))
+
+
+```
+**Observations**:
+
+- Protein deficiency seems equally 'common' across almost every educational level, with around 45% occurence, only pre-university secondary education (VWO) and university education (WO) seems to be slightly lower.
+
+
+#### Exploration across income group
+
+```
+labels for net income per month (income_net_adu_q_1_v2_T1_Q1)
+
+7 = i do not know this
+8 = I prefer not to answer
+9 = <750 euro
+10 = 750-1000 euro
+11 = 1000-1500 euro
+12 = 1500-2000 euro
+13 = 2000-2500 euro
+14 = 2500-3000 euro
+15 = 3000-3500 euro
+16 = >3500 euro
+```
+
+First, I replace the categorical values, with more representative values, so interpretation from plots will be a bit easier
+
+```{r}
+protein_data_filtered$income_group <- recode(protein_data_filtered$income_group, 
+                                    '9' = '<750',
+                                    '10' = '750 - 1000',
+                                    '11' = '1000 - 1500',
+                                    '12' = '1500 - 2000',
+                                    '13' = '2000 - 2500',
+                                    '14' = '2500 - 3000',
+                                    '15' = '3000 - 3500',
+                                    '16' = '>3500')
+    
+```
+
+```{r}
+ggplot(protein_data_filtered, aes(x = factor(income_group, level = c("<750", "750 - 1000", "1000 - 1500", "1500 - 2000", "2000 - 2500", "2500 - 3000", "3000 - 3500", ">3500")), fill = protein_deficiency)) + 
+  geom_bar(position = "fill") +
+  xlab("Net income per month in euros") +
+  ylab("Number of people") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_manual(values = c("#00BFC4", "#F8766D"))
+
+
+
+```
+
+**Observations**:
+
+- There does not seem a clear correlation between protein deficiency and income group
+- Protein deficiency seems least common in the lowest income group, of net <750 euros per month
+- Protein deficiency seems most common in the group where people did not specify their net monthly income
+- Notably this might be a skewed image, as very little participants were in the <750 group and a lot in the NA group
+
+
+# Conclusion
+The biggest influencing factor for being protein deficient seems to be BMI category, which makes sense as the recommended minimal protein intake is based on 0.83 x kg bodyweight. In this EDA, the variables used are limited. It would be interesting to further research as to what other variables contribute to protein deficiency. Some that come to mind are:
+
+- Does alcohol consumption influence protein deficiency?
+- Does activity level influence protein deficiency?
+- Do chronic diseases influence protein deficiency?
+
+Around 20% of calorie intake should come from protein, it could also be interesting to look into this.
+
+# Sources
+Aletta’s Regional Year Challenge 2025 - Food environment. (2025, 25 augustus). University Of Groningen. https://www.rug.nl/aletta/education/aletta-s-regional-year-challenge?lang=en
+https://pmc.ncbi.nlm.nih.gov/articles/PMC8978023/
+
