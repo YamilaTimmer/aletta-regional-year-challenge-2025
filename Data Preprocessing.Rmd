@@ -45,10 +45,10 @@ As we would like to make a user-friendly interactive data dashboard we first hav
 
 ```{r}
 # dataset for converting zipcode to town/city
-zipcode_data <- read.csv("4pp.csv", header = TRUE)
+zipcode_data <- read.csv("data/4pp.csv", header = TRUE)
 
 # Lifelines dataset
-data <- read.csv("Lifelines Public Health - Synthetic Dataset - 2025/dataset/Lifelines Dataset.csv", header = TRUE, na.strings=c("NA","NaN", "")) # Convert NA, NaN and "" (blank field) to NA for uniformity
+data <- read.csv("data/Lifelines Dataset.csv", header = TRUE, na.strings=c("NA","NaN", "")) # Convert NA, NaN and "" (blank field) to NA for uniformity
 ```
 
 
