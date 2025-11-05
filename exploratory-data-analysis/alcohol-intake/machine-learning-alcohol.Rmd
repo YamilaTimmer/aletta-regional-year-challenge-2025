@@ -1,0 +1,343 @@
+---
+title: "Lifelines Food Environment: Alcohol Intake"
+author: "Yamila Timmer"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    fig_caption: false
+    lightbox: true
+    gallery: true
+    toc_depth: 4
+    embed_fonts: true
+    use_bookdown: true
+    mathjax: "rmdformats"
+    highlight: "tango"
+    default_style: "light"
+    downcute_theme: "default"
+---
+
+Attempt at machine learning algorithm to predict health outcomes based on various variables including alcohol intake and location
+
+```{r}
+# dataset for converting zipcode to town/city
+zipcode_data <- read.csv("../data/4pp.csv", header = TRUE)
+
+# Lifelines dataset
+data <- read.csv("../data/Lifelines Dataset.csv ", header = TRUE, na.strings=c("NA","NaN", "")) # Convert NA, NaN and "" (blank field) to NA for uniformity
+```
+
+
+```{r}
+# Selecting columns of interest
+data_of_interest <- data %>%
+  select(zip_code_T1_M,
+         bodyweight_kg_all_m_1_T1_M,
+         bodyweight_kg_all_m_1_T2_M,
+         alcohol_intake_adu_c_1_T1_QF,
+         bpavg_diastolic_all_m_1_T1_BP,
+         bpavg_systolic_all_m_1_T1_BP,
+         bpavg_diastolic_all_m_1_T2_BP,
+         bpavg_systolic_all_m_1_T2_BP,
+         cholesterol_result_all_m_1_T1_S,
+         cholesterol_result_all_m_1_T2_S,
+         circumference_hip_all_m_1_T1_M,
+         circumference_hip_all_m_1_T2_M,
+         circumference_waist_all_m_1_T1_M,
+         circumference_waist_all_m_1_T2_M,
+         age_1a_q_1,
+         gender_T1_M)
+
+```
+
+As the names of the columns are quite long and thus a bit inconvenient to work with, we will rename the columns.
+```{r}
+data_of_interest <- data_of_interest %>%
+  rename(zipcode = zip_code_T1_M,
+         body_weight = bodyweight_kg_all_m_1_T1_M,
+         body_weight_2 = bodyweight_kg_all_m_1_T2_M,
+         bp_dia = bpavg_diastolic_all_m_1_T1_BP,
+         bp_dia_2 = bpavg_diastolic_all_m_1_T2_BP,
+         bp_sys = bpavg_systolic_all_m_1_T1_BP,
+         bp_sys_2 = bpavg_systolic_all_m_1_T2_BP,
+         cholesterol = cholesterol_result_all_m_1_T1_S,
+         cholesterol_2 = cholesterol_result_all_m_1_T2_S,
+         circumference_hip = circumference_hip_all_m_1_T1_M,
+         circumference_hip_2 = circumference_hip_all_m_1_T2_M,
+         circumference_waist = circumference_waist_all_m_1_T1_M,
+         circumference_waist_2 = circumference_waist_all_m_1_T2_M,
+         age = age_1a_q_1,
+         gender = gender_T1_M,
+         alcohol_intake = alcohol_intake_adu_c_1_T1_QF)
+
+data_of_interest$age <- data_of_interest$age/12
+data_of_interest$row_id <- 1:nrow(data_of_interest)
+```
+
+
+```{r}
+data_of_interest <- data_of_interest %>%
+  filter(!is.na(zipcode)) %>%
+  filter(!is.na(gender))
+
+```
+
+```{r}
+data_of_interest <- data_of_interest %>%
+    left_join(zipcode_data %>% select(latitude, longitude, postcode, woonplaats, gemeente, provincie), 
+              by = c("zipcode" = "postcode"))
+
+```
+
+
+```{r}
+data_of_interest <- data_of_interest %>%
+  filter(provincie %in% c("Drenthe", "Friesland", "Groningen"))
+
+
+```
+
+```{r}
+gg_miss_var(data_of_interest) + 
+  ylab("N. of missing values")
+```
+```{r}
+missing_data <- data_of_interest %>%
+  select(row_id, cholesterol_2, bp_sys_2, bp_dia_2, bp_sys, bp_dia, body_weight_2,
+         circumference_waist_2, circumference_hip_2, cholesterol)
+```
+
+Visualize before
+
+```{r}
+imputed <- mice(missing_data, method = "pmm")
+imputed_data <- complete(imputed)
+
+```
+```{r}
+gg_miss_var(imputed_data) + 
+  ylab("N. of missing values")
+```
+Join back two datasets
+
+```{r}
+data_of_interest[ , names(imputed_data)] <- imputed_data
+
+```
+
+```{r}
+gg_miss_var(data_of_interest) + 
+  ylab("N. of missing values")
+```
+
+Now there are no more missing values
+
+
+```{r}
+# -------------------------------------------------
+# 1. Load the raw data and create the target
+# -------------------------------------------------
+machine_learning_data <- data_of_interest %>%
+  mutate(BODYWT_GAIN = body_weight -
+           body_weight_2) %>%
+  mutate(WAIST_CIRC_GAIN = circumference_waist_2 -
+           circumference_waist) %>%
+   mutate(HIP_CIRC_GAIN = circumference_hip_2 -
+           circumference_hip) %>%
+  mutate(CHOLESTEROL_GAIN = cholesterol_2 -
+           cholesterol) %>%
+  mutate(DIA_BP_GAIN = bp_dia_2 -
+           bp_dia) %>%
+    mutate(SYS_BP_GAIN = bp_sys_2 -
+           bp_sys)
+```
+
+```{r}
+# -------------------------------------------------
+# 2. Choose the predictors you really want
+# -------------------------------------------------
+predictor_vars <- c(
+  "age",
+  "gender",
+  "alcohol_intake",
+  "provincie"
+)
+
+machine_learning_data <- machine_learning_data %>% select(all_of(c(predictor_vars, "DIA_BP_GAIN")))
+```
+
+```{r}
+# -------------------------------------------------
+# 3. Split into train / test (keep the outcome with the splits)
+# -------------------------------------------------
+set.seed(123)
+train_idx <- createDataPartition(machine_learning_data$DIA_BP_GAIN, p = .8, list = FALSE)
+train_raw <- machine_learning_data[train_idx, ]
+test_raw  <- machine_learning_data[-train_idx, ]
+```
+
+```{r}
+# -------------------------------------------------
+# 4. Turn character columns into factors (needed for dummyVars)
+# -------------------------------------------------
+to_factor <- function(x) if (is.character(x)) as.factor(x) else x
+train_raw[] <- lapply(train_raw, to_factor)
+test_raw[]  <- lapply(test_raw,  to_factor)
+```
+
+```{r}
+# -------------------------------------------------
+# 5. Add an explicit “Missing” level to every factor
+# -------------------------------------------------
+add_missing_level <- function(dat) {
+  fac_cols <- sapply(dat, is.factor)
+  dat[fac_cols] <- lapply(dat[fac_cols], function(f) {
+    f <- addNA(f)                     # NA becomes a level
+    levels(f)[is.na(levels(f))] <- "Missing"
+    f
+  })
+  dat
+}
+train_raw <- add_missing_level(train_raw)
+test_raw  <- add_missing_level(test_raw)
+```
+
+```{r}
+# -------------------------------------------------
+# 6. ---------- PRE‑PROCESSING ----------
+# -------------------------------------------------
+# 6a. Strip the outcome before any preprocessing
+train_X <- train_raw %>% select(-DIA_BP_GAIN)
+test_X  <- test_raw  %>% select(-DIA_BP_GAIN)
+
+# 6b. Impute, centre and scale *only* the predictor columns
+pp_obj <- preProcess(
+  train_X,
+  method = c("medianImpute", "center", "scale"),
+  nzv = TRUE               # drop zero‑variance (incl. all‑NA) columns
+)
+
+train_pp <- predict(pp_obj, train_X)
+test_pp  <- predict(pp_obj, test_X)
+
+# 6c. One‑hot encode the (now all‑numeric + factor) predictors
+dummy_mod <- dummyVars(~ ., data = train_pp, fullRank = FALSE)
+
+train_enc <- predict(dummy_mod, newdata = train_pp) %>% as.data.frame()
+test_enc  <- predict(dummy_mod, newdata = test_pp)  %>% as.data.frame()
+
+# 6d. Finally, re‑attach the outcome column (it never got touched)
+train_enc$DIA_BP_GAIN <- train_raw$DIA_BP_GAIN
+test_enc$DIA_BP_GAIN  <- test_raw$DIA_BP_GAIN
+```
+
+```{r}
+# -------------------------------------------------
+# 7. Train the neural‑net
+# -------------------------------------------------
+set.seed(123)
+nnet_grid <- expand.grid(
+  size  = c(1, 5, 50),
+  decay = c(0.5, 1e-7)
+)
+
+nnet_model <- train(
+  DIA_BP_GAIN ~ .,
+  data        = train_enc,
+  method      = "nnet",
+  metric      = "RMSE",
+  tuneGrid    = nnet_grid,
+  trControl   = trainControl(method = "cv", number = 2),
+  linout      = TRUE,      # regression
+  trace       = TRUE      
+)
+
+```
+
+```{r}
+# -------------------------------------------------
+# 8. Quick sanity‑check on the hold‑out set
+# -------------------------------------------------
+test_pred <- predict(nnet_model, newdata = test_enc)
+
+rmse_test <- sqrt(mean((test_enc$DIA_BP_GAIN - test_pred)^2))
+mae_test  <- mean(abs(test_enc$DIA_BP_GAIN - test_pred))
+r2_test   <- cor(test_enc$DIA_BP_GAIN, test_pred)^2
+
+cat("\n=== Test‑set performance ===\n")
+cat("RMSE :", round(rmse_test, 3), "\n")
+cat("MAE  :", round(mae_test, 3), "\n")
+cat("R²   :", round(r2_test, 3), "\n")
+
+ggplot(data = tibble(
+  observed = test_enc$DIA_BP_GAIN,
+  predicted = test_pred
+),
+aes(x = observed, y = predicted)) +
+  geom_point(alpha = 0.6, colour = "#2C3E50") +
+  geom_abline(slope = 1, intercept = 0,
+              colour = "#E74C3C", linetype = "dashed", size = 0.8) +
+  labs(
+    title = "Observed vs. Predicted Body‑weight Gain (Test Set)",
+    x = "Observed Δ kg",
+    y = "Predicted Δ kg"
+  ) +
+  theme_minimal(base_size = 13)
+
+```
+
+```{r}
+# -------------------------------------------------
+# 9. Save everything you’ll need for inference
+# -------------------------------------------------
+saveRDS(nnet_model,   "bodywt_nnet_model.rds")
+saveRDS(dummy_mod,    "bodywt_dummyVars.rds")
+saveRDS(pp_obj,       "bodywt_preprocess.rds")
+saveRDS(predictor_vars, "bodywt_predictor_vars.rds")
+
+```
+
+
+```{r}
+# -------------------------------------------------
+# 10. Helper for scoring a *single* new participant
+# -------------------------------------------------
+predict_bodywt_gain <- function(new_record) {
+  ## 10a. Load artefacts
+  model   <- readRDS("bodywt_nnet_model.rds")
+  dummy   <- readRDS("bodywt_dummyVars.rds")
+  pp      <- readRDS("bodywt_preprocess.rds")
+  
+  ## 10b. Make sure factor columns have the same levels as the training data
+  new_record[] <- lapply(new_record, function(x) {
+    if (is.character(x)) as.factor(x) else x
+  })
+  new_record <- add_missing_level(new_record)   # same helper as above
+  
+  ## 10c. Apply the *same* preprocessing (impute → centre → scale)
+  # Note: the preProcess object was built on predictor‑only data,
+  # so we can feed the raw new_record straight to it.
+  new_pp <- predict(pp, new_record)
+  
+  ## 10d. One‑hot encode the predictors
+  new_enc <- predict(dummy, new_pp) %>% as.data.frame()
+  
+  ## 10e. Predict the outcome
+  predict(model, newdata = new_enc)
+}
+
+```
+
+```{r}
+# -------------------------------------------------
+# 11. Example usage
+# -------------------------------------------------
+new_participant <- tibble(
+  age                = 40,
+  gender              = "FEMALE",   # must match a level seen in training
+  alcohol_intake = 0,
+  provincie = "Groningen"
+)
+
+predicted_one <- predict_bodywt_gain(new_participant)
+print(predicted_one)
+```
