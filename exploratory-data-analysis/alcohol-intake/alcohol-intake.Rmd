@@ -1,0 +1,172 @@
+---
+title: "Lifelines Food Environment: Alcohol Intake"
+author: "Yamila Timmer"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    fig_caption: false
+    lightbox: true
+    gallery: true
+    toc_depth: 4
+    embed_fonts: true
+    use_bookdown: true
+    mathjax: "rmdformats"
+    highlight: "tango"
+    default_style: "light"
+    downcute_theme: "default"
+---
+
+```{r}
+library(plotly)
+library(ggplot2)
+
+```
+
+# Visualizing
+
+Here, I will generate some visualisations to look at alcohol intake in the lifelines dataset, specifically I will be looking at 'total alcohol intake in g/day'.
+
+For comparison:
+
+- 1 standard glass of beer (250mL) contains 10 gram of alcohol
+
+
+```{r}
+summary(data_of_interest$alcohol_intake)
+```
+
+
+## Gender vs Alcohol
+
+```{r}
+ggplot(data_of_interest, aes(x = gender, y = alcohol_intake, fill = gender)) + 
+  geom_boxplot() +
+  xlab("Gender") +
+  ylab("Daily alcohol intake in gram")
+
+```
+Conclusions:
+
+- There seem to be many outliers, for both men and women, so it seems wise to leave these in as they don't seem to be an exception
+- Alcohol consumption seems to be higher among men
+
+
+```{r}
+# Visualize age distribution/gender
+ggplot(data = data_of_interest) + 
+  geom_density(mapping = aes(x = alcohol_intake, 
+                             color = gender, 
+                             fill = gender), alpha = 0.2) + 
+  xlab("Daily alcohol intake in gram") + 
+  ggtitle("Distribution of alcohol intake per gender")
+```
+Conclusions:
+
+- There seem to be a lot more women that dont drink on a daily basis, compared to men
+- Around 35-40 seems to be a cutoff point, above this point there are very little values
+
+## Age vs Alcohol
+
+```{r}
+ggplot(data_of_interest, aes(x=age, y=alcohol_intake)) + 
+    geom_point() +
+  xlab("Age in years") + 
+  ylab("Daily alcohol intake in gram") +
+  ggtitle("Distribution of alcohol intake across age")
+
+```
+Conclusions:
+
+- It seems like alcohol intake does not differ that much across age, except for participants above 75 years, there seem to be a lot less high values here
+
+## Alcohol vs City
+
+```{r}
+city_data <- data_of_interest %>%
+  group_by(woonplaats) %>%
+  summarise(avg_alcohol = mean(alcohol_intake))
+
+```
+
+```{r}
+
+city_alcohol <- data_of_interest %>%
+  group_by(woonplaats) %>%
+  summarise(mean_alcohol = mean(alcohol_intake, na.rm = TRUE)) %>%
+  arrange(desc(mean_alcohol)) %>%
+  slice_head(n = 10)
+
+
+ggplot(city_alcohol, aes(x = reorder(woonplaats, mean_alcohol), y = 1, fill = mean_alcohol)) +
+  geom_tile(color = "white") +
+  scale_fill_viridis_c(option = "inferno", name = "Avg. alcohol intake") +
+  labs(title = "Top 10 Cities by Alcohol Intake",
+       x = "City", y = "") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid = element_blank()
+  )
+
+```
+```{r}
+ggplot(data_of_interest, aes(x = provincie, y = alcohol_intake, fill = provincie)) +
+  geom_violin(trim = FALSE) +
+  labs(
+    title = "Distribution of Alcohol Intake per Province",
+    x = "Province",
+    y = "Alcohol Intake"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    legend.position = "none"  # remove redundant color legend
+  )
+
+
+```
+
+```{r}
+data <- as.matrix(data_of_interest)
+heatmap(data_of_interest)
+
+```
+
+# Map
+
+
+```{r}
+library(leaflet)
+library(mapview)
+
+```
+
+Divide avg intake by participants, to normalize?
+```{r}
+city_data <- data_of_interest %>%
+  group_by(woonplaats) %>%
+  summarise(avg_alcohol = mean(alcohol_intake))
+
+```
+
+```{r}
+city_data <- city_data %>%
+    left_join(zipcode_data %>% select(latitude, longitude, woonplaats), 
+              by = c("woonplaats" = "woonplaats"))
+
+```
+
+```{r}
+m = leaflet(data = city_data) %>%
+   addTiles() %>%
+   addCircleMarkers(~longitude, ~latitude , popup = ~as.character(avg_alcohol))
+m
+
+```
+
+
+```{r}
+mapview(data_of_interest, xcol = "longitude", ycol = "latitude", crs = 4269, grid = FALSE)
+```
