@@ -1,0 +1,88 @@
+---
+title: "EDA NOVA and total kcal intake"
+output: html_document
+date: "2025-11-01"
+---
+
+```{r}
+#libraries
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(ggforce)
+library(heatmaply)
+library(UpSetR)
+library(naniar)
+```
+
+
+```{r}
+#processed data set with converted zipcodes
+data_of_interest <- read.csv("data/data of interest.csv")
+
+
+#Split data into east and west
+threshold <- median(data_of_interest$longitude, na.rm = TRUE)
+data_of_interest$region <- ifelse(data_of_interest$longitude > threshold, "East", "West")
+```
+
+
+What is the difference in  calorie intake and (un)processed food consumption between the east and west?
+```{r}
+#Mean of calories and (un)processed food consumption.
+data_of_interest %>%
+  group_by(region) %>%
+  summarise(
+    mean_kcal = mean(kcal_intake, na.rm = TRUE),
+            sd_kcal = sd(kcal_intake, na.rm = TRUE),
+    
+    mean_nova1 = mean(nova_foodintake_1, na.rm = TRUE),
+    sd_nova1 = sd(nova_foodintake_1, na.rm = TRUE),
+    
+    mean_nova4 = mean(nova_foodintake_4, na.rm = TRUE),
+    sd_nova4 = sd(nova_foodintake_4, na.rm = TRUE),
+    
+    count  = n()
+  )
+
+# Summarize means
+summary_data <- data_of_interest %>%
+  group_by(region) %>%
+  summarise(
+    mean_kcal = mean(kcal_intake, na.rm = TRUE),
+    mean_nova1 = mean(nova_foodintake_1, na.rm = TRUE),
+    mean_nova4 = mean(nova_foodintake_4, na.rm = TRUE)
+  ) %>%
+  pivot_longer(cols = starts_with("mean_"), names_to = "variable", values_to = "value")
+
+# Clean variable names
+summary_data$variable <- gsub("mean_", "", summary_data$variable)
+
+# Plot
+ggplot(summary_data, aes(x = variable, y = value, fill = region)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Comparison of intake total kcal, nova1, and nova4 by Region",
+       x = "", y = "Mean Value") +
+  theme_classic()
+```
+The east has higher total calorie intake, and consumes more processed and unprocessed food.
+
+Is there a significant differences for calorie intake and (un)processed food consumption?
+```{r}
+t.test(kcal_intake ~ region, data = data_of_interest)
+t.test(nova_foodintake_1 ~ region, data = data_of_interest)
+t.test(nova_foodintake_4 ~ region, data = data_of_interest)
+```
+Yes there are significant differences for kcal intake, nova1 and nova4 consumption. Noteably nova1 showed the highest P-value, showing it's the least significant.
+
+What if splitting east and west by median is not the best, does longitude have effect on kcal intake and nova class?
+```{r}
+ggplot(data_of_interest, aes(x = longitude, y = kcal_intake)) +
+  geom_point(alpha = 0.4, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkred") +
+  labs(title = "Relationship between Longitude and kcal intake",
+       x = "Longitude", y = "kcal intake") +
+  theme_minimal()
+```
+
