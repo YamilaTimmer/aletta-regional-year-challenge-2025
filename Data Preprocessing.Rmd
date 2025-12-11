@@ -146,6 +146,8 @@ data_of_interest <- data_of_interest %>%
          diastolic_pressure_3 = bpavg_diastolic_all_m_1_T3_BP,
          systolic_pressure_3 = bpavg_systolic_all_m_1_T3_BP
          )
+data_of_interest$age <- data_of_interest$age/12
+
 ```
 
 Let's check the missing values, some zipcodes seem to be missing (`r sum(is.na(data_of_interest$zipcode))` to be precise), we will remove those before moving on. Other noteworthy commonly missing values are all measurements at T3, here ~50000 datapoints seem to be missing, which is quite a significant amount for the total of (`r nrow(data)`) rows. For T2 this seems to be ~20000 which is still significant, but less severe as T3. These missing values are caused by participants not coming back for assessments at T2 and T3, or by participants sadly passing away in the meantime. Depending on the machine learning model being trained, missing values can be dealt with by removing or imputing them. For now we will just make sure there are no missing values for creating the initial data set we will continue with, so for now it's important there are no missing zipcodes as we want to link the dataset to latitude/longitude data.

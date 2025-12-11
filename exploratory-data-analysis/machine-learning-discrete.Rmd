@@ -16,75 +16,67 @@ output:
     downcute_theme: "default"
 ---
 
-In this notebook I will make a categorical machine learning model that can predict disease risk. We are using the Lifelines dataset, there is only one disease present that is heavily influenced by dietary choices, which is diabetes.
+In this notebook I will make a categorical machine learning model that can predict disease risk. We are using the Lifelines data set. From the available data there are two diseases that can be related to dietary choices, which are diabetes and hypertension.
 
-```{r}
-# dataset for converting zipcode to town/city
-zipcode_data <- read.csv("../data/4pp.csv", header = TRUE)
+The data of interest has already been constructed after running the data pre-processing R markdown file, however to train specific models for diabetes/hypertension prediction, some missing values will have to be dealt with.
 
-# Lifelines dataset
-data <- read.csv("../data/Lifelines Dataset.csv ", header = TRUE, na.strings=c("NA","NaN", "")) # Convert NA, NaN and "" (blank field) to NA for uniformity
-```
+# Diabetes prediction
 
-
-```{r}
-# Selecting columns of interest
-data_of_interest <- data %>%
-  select(age_1a_q_1,
-         gender_T1_M,
-         bodyweight_kg_all_m_1_T1_M,
-         circumference_waist_all_m_1_T1_M,
-         diabetes_presence_adu_q_1_T1_Q1,
-         diabetes_followup_adu_q_1_T2_Q1,
-         zip_code_T1_M)
-
-```
-
-As the names of the columns are quite long and thus a bit inconvenient to work with, we will rename the columns.
+The dataset contains 3 variables needed to determine diabetes occurence, which are the 3 seperate diabetes 'checks'. Lifelines has 3 different timepoints, each around 5-10 years apart. For the first timepoint the participant is asked whether they have diabetes. Here 2 equals 'no' and 1 equals 'yes'. Then at T2, several years later, participants are asked if they have developed diabetes in the time between T1 and T2. Again here 2 equals 'no' and 1 equals 'yes'. Lastly, the participants are asked at T3 if they have developed diabetes between T2 and T3.
 ```{r}
 data_of_interest <- data_of_interest %>%
-  rename(body_weight = bodyweight_kg_all_m_1_T1_M,
-         age = age_1a_q_1,
-         gender = gender_T1_M,
-         waist_circumference = circumference_waist_all_m_1_T1_M,
-         diabetes = diabetes_presence_adu_q_1_T1_Q1,
-         new_diabetes = diabetes_followup_adu_q_1_T2_Q1,
-         zipcode = zip_code_T1_M)
-
-data_of_interest$age <- data_of_interest$age/12
-data_of_interest$row_id <- 1:nrow(data_of_interest)
-```
-
-
-```{r}
-data_of_interest <- data_of_interest %>%
-  filter(!is.na(zipcode)) %>%
   filter(!is.na(gender)) %>%
-  filter(!is.na(new_diabetes)) %>%
-  filter(!is.na(diabetes))
+  filter(!is.na(diabetes_presence_2)) %>%
+  filter(!is.na(diabetes_presence_1)) %>%
+  filter(!is.na(diabetes_presence_3)) %>%
+  filter(!is.na(nova_foodintake_4))
 
 ```
 
 ```{r}
-data_of_interest <- data_of_interest %>%
-    left_join(zipcode_data %>% select(latitude, longitude, postcode, woonplaats, gemeente, provincie), 
-              by = c("zipcode" = "postcode"))
+library(tidyverse)
+
+data_long <- data_of_interest %>%
+  pivot_longer(
+    cols = starts_with("diabetes_presence"),
+    names_to = "variable",
+    values_to = "value"
+  ) %>%
+  filter(value == 1)
+
+ggplot(data_long, aes(x = variable)) +
+  geom_bar() +
+  theme_minimal() +
+  labs(
+    x = "Timepoints",
+    y = "Amount of participants",
+    title = "Amount of new cases of diabetes per timepoint"
+  )
 
 ```
 
+To be able to predict diabetes occurrence, we need a decent amount of data on participants that developed diabetes during Lifelines. We do not look at T1, as the survey made no distinction between diabetes type I and type II. As only type II is heavily correlated with food environment, we are only interested in this type. Type II often develops later in life, thus we will look only at T2 and T3. To get a more complete overview of what and how many participants develop diabetes during the complete duration of Lifelines we combine diabetes_presence_2 and diabetes_presence_3.
 
 ```{r}
 data_of_interest <- data_of_interest %>%
-  filter(provincie %in% c("Drenthe", "Friesland", "Groningen"))
-
+  mutate(
+    new_diabetes = if_else(
+      diabetes_presence_2 == 1 |
+      diabetes_presence_3 == 1,
+      1, 
+      2 
+    )
+  )
 
 ```
+
 
 ```{r}
 gg_miss_var(data_of_interest) + 
   ylab("N. of missing values")
+
 ```
-Now that there are no missing values, we can continue to the actual model.
+
 
 # Machine learning model
 
@@ -100,22 +92,22 @@ library(pROC)
 library(PRROC)
 ```
 
-
 ```{r}
-
 # -------------------------------------------------
 # 1. Load and prepare data
 # -------------------------------------------------
 machine_learning_data <- data_of_interest
 
-# Choose variables to use as predictors
-predictor_vars <- c("latitude", "longitude", "age", "gender", "body_weight", "waist_circumference")
+# Choose predictor variables
+predictor_vars <- c(
+  "latitude", "longitude", "age", "body_weight_1", 
+  "circumference_hip_1", "circumference_waist_1", 
+  "kcal_intake", "nova_foodintake_1", "nova_foodintake_4"
+)
+
 machine_learning_data <- machine_learning_data %>%
   select(all_of(c(predictor_vars, "new_diabetes")))
 
-```
-
-```{r}
 # -------------------------------------------------
 # 2. Train/test split
 # -------------------------------------------------
@@ -124,107 +116,85 @@ train_index <- createDataPartition(machine_learning_data$new_diabetes, p = 0.8, 
 train_data <- machine_learning_data[train_index, ]
 test_data  <- machine_learning_data[-train_index, ]
 
-# Convert to levels
+# Convert outcome to factor
 train_data$new_diabetes <- factor(ifelse(train_data$new_diabetes == 1, "Yes", "No"), levels = c("No","Yes"))
 test_data$new_diabetes  <- factor(ifelse(test_data$new_diabetes == 1, "Yes", "No"), levels = c("No","Yes"))
-```
 
-```{r}
 # -------------------------------------------------
-# 3. Dummy encode predictors for SMOTE
+# 3. Dummy encode predictors
 # -------------------------------------------------
-# Attempt to reduce difference in amounts between yes/no
 dummies <- dummyVars(~ ., data = train_data %>% select(-new_diabetes), fullRank = FALSE)
 X_num <- predict(dummies, newdata = train_data %>% select(-new_diabetes)) %>% as.data.frame()
 y <- train_data$new_diabetes
 
 # -------------------------------------------------
-# 4. Apply SMOTE
+# 4. Apply SMOTE for class balancing
 # -------------------------------------------------
 balanced <- SMOTE(X_num, y, K = 5)
 train_balanced <- balanced$data
 colnames(train_balanced)[ncol(train_balanced)] <- "new_diabetes"
 train_balanced$new_diabetes <- factor(train_balanced$new_diabetes, levels = c("No","Yes"))
 
-```
-
-```{r}
 # -------------------------------------------------
-# 5. Train model
+# 5. Train RandomForest with higher weight for 'Yes'
 # -------------------------------------------------
-ctrl <- trainControl(
-  method = "cv",
-  number = 5,
-  classProbs = TRUE,
-  summaryFunction = twoClassSummary
-)
-
-model <- train(
+library(randomForest)
+model <- randomForest(
   new_diabetes ~ .,
   data = train_balanced,
-  method = "rf",
-  metric = "ROC",
-  trControl = ctrl
+  classwt = c("No" = 1, "Yes" = 100)  # increases sensitivity for Yes
 )
 
 # -------------------------------------------------
-# 6. Prepare test set for prediction
+# 6. Prepare test set
 # -------------------------------------------------
 test_num <- predict(dummies, newdata = test_data %>% select(-new_diabetes)) %>% as.data.frame()
 test_num$new_diabetes <- test_data$new_diabetes
 
 # -------------------------------------------------
-# 7. Evaluate model
-# -------------------------------------------------
-pred <- predict(model, newdata = test_num)
-confusionMatrix(pred, test_num$new_diabetes, positive = "Yes")
-
-# -------------------------------------------------
-# 8. ROC and Precision–Recall curves
+# 7. Predict probabilities
 # -------------------------------------------------
 probs <- predict(model, newdata = test_num, type = "prob")
+prob_yes <- probs[, "Yes"]  # extract probability for 'Yes'
 
-# ROC
-roc_obj <- roc(test_num$new_diabetes, probs$Yes, levels = c("No","Yes"), direction = "<")
+# -------------------------------------------------
+# 8. ROC curve
+# -------------------------------------------------
+library(pROC)
+roc_obj <- roc(test_num$new_diabetes, prob_yes, levels = c("No","Yes"))
 plot(roc_obj, col = "blue", lwd = 2, main = "ROC Curve")
 cat("AUC:", auc(roc_obj), "\n")
 
-# Precision–Recall
-labels <- ifelse(test_num$new_diabetes == "Yes", 1, 0)
-pr_obj <- pr.curve(scores.class0 = probs$Yes[labels==1],
-                   scores.class1 = probs$Yes[labels==0],
-                   curve = TRUE)
-plot(pr_obj, main = "Precision–Recall Curve")
+# -------------------------------------------------
+# 9. Choose threshold for high sensitivity
+# -------------------------------------------------
+coords_sens <- coords(roc_obj, x = "all", ret = c("threshold", "sensitivity", "specificity"))
+high_sens_threshold <- 0.05
+cat("Threshold for high sensitivity:", high_sens_threshold, "\n")
 
 # -------------------------------------------------
-# 9. Optimal threshold: Youden's J
+# 10. Final evaluation using chosen threshold
 # -------------------------------------------------
-best_coords <- coords(roc_obj, "best", ret = c("threshold", "sensitivity", "specificity"), transpose = FALSE)
-cat("Best threshold (Youden's J):", best_coords$threshold, "\n")
+custom_pred <- ifelse(prob_yes > high_sens_threshold, "Yes", "No")
+confusionMatrix(factor(custom_pred, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
 
 # -------------------------------------------------
-# 10. Optimal threshold: F1 score
+# 11. Optional: F1 score threshold optimization
 # -------------------------------------------------
 thresholds <- seq(0, 1, by = 0.01)
 f1_scores <- sapply(thresholds, function(t) {
-  pred <- ifelse(probs$Yes > t, "Yes", "No")
+  pred <- ifelse(prob_yes > t, "Yes", "No")
   cm <- confusionMatrix(factor(pred, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
   precision <- cm$byClass["Pos Pred Value"]
   recall <- cm$byClass["Sensitivity"]
   if (is.na(precision) | is.na(recall) | (precision + recall) == 0) return(0)
   2 * (precision * recall) / (precision + recall)
 })
-
 best_f1_threshold <- thresholds[which.max(f1_scores)]
 cat("Best threshold (F1 score):", best_f1_threshold, "\n")
 
-# -------------------------------------------------
-# 11. Final evaluation at best F1 threshold
-# -------------------------------------------------
-custom_pred <- ifelse(probs$Yes > best_f1_threshold, "Yes", "No")
-confusionMatrix(factor(custom_pred, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
-
-
+custom_pred_f1 <- ifelse(prob_yes > best_f1_threshold, "Yes", "No")
+confusionMatrix(factor(custom_pred_f1, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
 ```
 
 ```{r}
@@ -232,12 +202,18 @@ new_person <- data.frame(
   latitude = 53.2,
   longitude = 6.6,
   age = 45,
-  gender = "FEMALE",
-  body_weight = 78,
-  waist_circumference = 92
+  body_weight_1 = 158,
+  circumference_waist_1 = 142,
+  circumference_hip_1 = 110,
+  kcal_intake = 4400,
+  nova_foodintake_1 = 100,
+  nova_foodintake_4 = 300
+  
 )
 
+
 new_person_num <- predict(dummies, newdata = new_person) %>% as.data.frame()
+
 
 # Make sure missing dummy columns are added with 0
 missing_cols <- setdiff(names(train_balanced)[-ncol(train_balanced)], names(new_person_num))
@@ -256,3 +232,145 @@ TODO:
 - It is difficult to predict true as true, because there are a lot more negative cases, maybe ask Fenna for a way to improve
 - join with T_3 diabetes
 - Add new parameters
+
+
+# Hypertension
+## Background info
+
+Another disease, that can also be related to food environment, that we can add is hypertension. According to the national heart, lung and blood institute of the United States, a person has hypertension if their blood pressure is 130/80 or higher. With the first number being the systolic pressure and the second the diastolic pressure. We have data on both so we can look into how many people suffer from hypertension.
+
+```{r}
+# -------------------------------
+# 1. Define hypertension outcome
+# -------------------------------
+# Hypertension: systolic ≥130 OR diastolic ≥80
+data_of_interest <- data_of_interest %>%
+  mutate(
+    hypertension_t1 = if_else(systolic_pressure_1 >= 130 | diastolic_pressure_1 >= 80, 1, 0),
+    hypertension_t2 = if_else(systolic_pressure_2 >= 130 | diastolic_pressure_2 >= 80, 1, 0),
+    hypertension_t3 = if_else(systolic_pressure_3 >= 130 | diastolic_pressure_3 >= 80, 1, 0),
+    hypertension = case_when(
+      is.na(hypertension_t2) & is.na(hypertension_t3) ~ hypertension_t1,          # use T1 if T2 & T3 NA
+      is.na(hypertension_t3) & !is.na(hypertension_t2) ~ hypertension_t2,         # use T2 if T3 NA
+      TRUE ~ if_else(hypertension_t1 == 1 | hypertension_t2 == 1 | hypertension_t3 == 1, 1, 0)  # otherwise 1 if any = 1
+    )
+  )
+
+
+```
+
+```{r}
+
+# -------------------------------
+# 2. Prepare predictor variables
+# -------------------------------
+predictor_vars <- c(
+  "latitude", "longitude", "age", "body_weight_1",
+  "circumference_hip_1", "circumference_waist_1",
+  "kcal_intake", "nova_foodintake_1", "nova_foodintake_4"
+)
+
+ml_data <- data_of_interest %>%
+  select(all_of(c(predictor_vars, "hypertension")))
+
+# -------------------------------
+# 3. Train/Test Split
+# -------------------------------
+set.seed(123)
+train_index <- createDataPartition(ml_data$hypertension, p = 0.8, list = FALSE)
+train_data <- ml_data[train_index, ]
+test_data  <- ml_data[-train_index, ]
+
+# Convert outcome to factor
+train_data$hypertension <- factor(ifelse(train_data$hypertension == 1, "Yes", "No"), levels=c("No","Yes"))
+test_data$hypertension  <- factor(ifelse(test_data$hypertension == 1, "Yes", "No"), levels=c("No","Yes"))
+
+# -------------------------------
+# 4. Dummy encode predictors
+# -------------------------------
+dummies <- dummyVars(~ ., data = train_data %>% select(-hypertension), fullRank = FALSE)
+X_num <- predict(dummies, newdata = train_data %>% select(-hypertension)) %>% as.data.frame()
+y <- train_data$hypertension
+
+# -------------------------------
+# 5. Apply SMOTE for class balancing
+# -------------------------------
+balanced <- SMOTE(X_num, y, K = 5)
+train_balanced <- balanced$data
+colnames(train_balanced)[ncol(train_balanced)] <- "hypertension"
+train_balanced$hypertension <- factor(train_balanced$hypertension, levels=c("No","Yes"))
+
+# -------------------------------
+# 6. Train RandomForest with class weights
+# -------------------------------
+model <- randomForest(
+  hypertension ~ .,
+  data = train_balanced,
+  classwt = c("No"=1, "Yes"=5)  # increase weight for Yes to improve sensitivity
+)
+
+# -------------------------------
+# 7. Prepare test set
+# -------------------------------
+test_num <- predict(dummies, newdata = test_data %>% select(-hypertension)) %>% as.data.frame()
+test_num$hypertension <- test_data$hypertension
+
+# -------------------------------
+# 8. Predict probabilities
+# -------------------------------
+probs <- predict(model, newdata = test_num, type = "prob")
+prob_yes <- probs[, "Yes"]
+
+# -------------------------------
+# 9. ROC Curve and AUC
+# -------------------------------
+roc_obj <- roc(test_num$hypertension, prob_yes, levels=c("No","Yes"))
+plot(roc_obj, col="blue", lwd=2, main="ROC Curve")
+cat("AUC:", auc(roc_obj), "\n")
+
+# -------------------------------
+# 10. Select threshold for high sensitivity
+# -------------------------------
+coords_sens <- coords(roc_obj, x="all", ret=c("threshold", "sensitivity", "specificity"))
+high_sens_threshold <- coords_sens$threshold[which.max(coords_sens$sensitivity)]
+cat("Threshold for high sensitivity:", high_sens_threshold, "\n")
+
+# -------------------------------
+# 11. Evaluate model at chosen threshold
+# -------------------------------
+custom_pred <- ifelse(prob_yes > high_sens_threshold, "Yes", "No")
+confusionMatrix(factor(custom_pred, levels=c("No","Yes")), test_num$hypertension, positive="Yes")
+```
+
+```{r}
+# -------------------------------
+# 12. Predict new individual
+# -------------------------------
+new_person <- data.frame(
+  latitude = 53.2,
+  longitude = 6.6,
+  age = 80,
+  body_weight_1 = 200,
+  circumference_waist_1 = 150,
+  circumference_hip_1 = 150,
+  kcal_intake = 2500,
+  nova_foodintake_1 = 100,
+  nova_foodintake_4 = 3000
+)
+
+new_person_num <- predict(dummies, newdata = new_person) %>% as.data.frame()
+
+# Add missing dummy columns
+missing_cols <- setdiff(names(train_balanced)[-ncol(train_balanced)], names(new_person_num))
+for (col in missing_cols) new_person_num[[col]] <- 0
+
+# Predict probability for new person
+prob_new <- predict(model, newdata = new_person_num, type="prob")[, "Yes"]
+cat("Predicted chance of developing hypertension in next 10 years:", round(prob_new*100,2), "%\n")
+
+
+
+```
+
+
+## Distribution of hypertension
