@@ -1,0 +1,258 @@
+---
+title: "Lifelines Food Environment: Predicting Disease"
+author: "Yamila Timmer"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    fig_caption: false
+    lightbox: true
+    gallery: true
+    toc_depth: 4
+    embed_fonts: true
+    use_bookdown: true
+    mathjax: "rmdformats"
+    highlight: "tango"
+    default_style: "light"
+    downcute_theme: "default"
+---
+
+In this notebook I will make a categorical machine learning model that can predict disease risk. We are using the Lifelines dataset, there is only one disease present that is heavily influenced by dietary choices, which is diabetes.
+
+```{r}
+# dataset for converting zipcode to town/city
+zipcode_data <- read.csv("../data/4pp.csv", header = TRUE)
+
+# Lifelines dataset
+data <- read.csv("../data/Lifelines Dataset.csv ", header = TRUE, na.strings=c("NA","NaN", "")) # Convert NA, NaN and "" (blank field) to NA for uniformity
+```
+
+
+```{r}
+# Selecting columns of interest
+data_of_interest <- data %>%
+  select(age_1a_q_1,
+         gender_T1_M,
+         bodyweight_kg_all_m_1_T1_M,
+         circumference_waist_all_m_1_T1_M,
+         diabetes_presence_adu_q_1_T1_Q1,
+         diabetes_followup_adu_q_1_T2_Q1,
+         zip_code_T1_M)
+
+```
+
+As the names of the columns are quite long and thus a bit inconvenient to work with, we will rename the columns.
+```{r}
+data_of_interest <- data_of_interest %>%
+  rename(body_weight = bodyweight_kg_all_m_1_T1_M,
+         age = age_1a_q_1,
+         gender = gender_T1_M,
+         waist_circumference = circumference_waist_all_m_1_T1_M,
+         diabetes = diabetes_presence_adu_q_1_T1_Q1,
+         new_diabetes = diabetes_followup_adu_q_1_T2_Q1,
+         zipcode = zip_code_T1_M)
+
+data_of_interest$age <- data_of_interest$age/12
+data_of_interest$row_id <- 1:nrow(data_of_interest)
+```
+
+
+```{r}
+data_of_interest <- data_of_interest %>%
+  filter(!is.na(zipcode)) %>%
+  filter(!is.na(gender)) %>%
+  filter(!is.na(new_diabetes)) %>%
+  filter(!is.na(diabetes))
+
+```
+
+```{r}
+data_of_interest <- data_of_interest %>%
+    left_join(zipcode_data %>% select(latitude, longitude, postcode, woonplaats, gemeente, provincie), 
+              by = c("zipcode" = "postcode"))
+
+```
+
+
+```{r}
+data_of_interest <- data_of_interest %>%
+  filter(provincie %in% c("Drenthe", "Friesland", "Groningen"))
+
+
+```
+
+```{r}
+gg_miss_var(data_of_interest) + 
+  ylab("N. of missing values")
+```
+Now that there are no missing values, we can continue to the actual model.
+
+# Machine learning model
+
+```{r}
+# -------------------------------------------------
+# 0. Load packages
+# -------------------------------------------------
+library(tidyverse)
+library(caret)
+library(smotefamily)
+library(randomForest)
+library(pROC)
+library(PRROC)
+```
+
+
+```{r}
+
+# -------------------------------------------------
+# 1. Load and prepare data
+# -------------------------------------------------
+machine_learning_data <- data_of_interest
+
+# Choose variables to use as predictors
+predictor_vars <- c("latitude", "longitude", "age", "gender", "body_weight", "waist_circumference")
+machine_learning_data <- machine_learning_data %>%
+  select(all_of(c(predictor_vars, "new_diabetes")))
+
+```
+
+```{r}
+# -------------------------------------------------
+# 2. Train/test split
+# -------------------------------------------------
+set.seed(123)
+train_index <- createDataPartition(machine_learning_data$new_diabetes, p = 0.8, list = FALSE)
+train_data <- machine_learning_data[train_index, ]
+test_data  <- machine_learning_data[-train_index, ]
+
+# Convert to levels
+train_data$new_diabetes <- factor(ifelse(train_data$new_diabetes == 1, "Yes", "No"), levels = c("No","Yes"))
+test_data$new_diabetes  <- factor(ifelse(test_data$new_diabetes == 1, "Yes", "No"), levels = c("No","Yes"))
+```
+
+```{r}
+# -------------------------------------------------
+# 3. Dummy encode predictors for SMOTE
+# -------------------------------------------------
+# Attempt to reduce difference in amounts between yes/no
+dummies <- dummyVars(~ ., data = train_data %>% select(-new_diabetes), fullRank = FALSE)
+X_num <- predict(dummies, newdata = train_data %>% select(-new_diabetes)) %>% as.data.frame()
+y <- train_data$new_diabetes
+
+# -------------------------------------------------
+# 4. Apply SMOTE
+# -------------------------------------------------
+balanced <- SMOTE(X_num, y, K = 5)
+train_balanced <- balanced$data
+colnames(train_balanced)[ncol(train_balanced)] <- "new_diabetes"
+train_balanced$new_diabetes <- factor(train_balanced$new_diabetes, levels = c("No","Yes"))
+
+```
+
+```{r}
+# -------------------------------------------------
+# 5. Train model
+# -------------------------------------------------
+ctrl <- trainControl(
+  method = "cv",
+  number = 5,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+model <- train(
+  new_diabetes ~ .,
+  data = train_balanced,
+  method = "rf",
+  metric = "ROC",
+  trControl = ctrl
+)
+
+# -------------------------------------------------
+# 6. Prepare test set for prediction
+# -------------------------------------------------
+test_num <- predict(dummies, newdata = test_data %>% select(-new_diabetes)) %>% as.data.frame()
+test_num$new_diabetes <- test_data$new_diabetes
+
+# -------------------------------------------------
+# 7. Evaluate model
+# -------------------------------------------------
+pred <- predict(model, newdata = test_num)
+confusionMatrix(pred, test_num$new_diabetes, positive = "Yes")
+
+# -------------------------------------------------
+# 8. ROC and Precision–Recall curves
+# -------------------------------------------------
+probs <- predict(model, newdata = test_num, type = "prob")
+
+# ROC
+roc_obj <- roc(test_num$new_diabetes, probs$Yes, levels = c("No","Yes"), direction = "<")
+plot(roc_obj, col = "blue", lwd = 2, main = "ROC Curve")
+cat("AUC:", auc(roc_obj), "\n")
+
+# Precision–Recall
+labels <- ifelse(test_num$new_diabetes == "Yes", 1, 0)
+pr_obj <- pr.curve(scores.class0 = probs$Yes[labels==1],
+                   scores.class1 = probs$Yes[labels==0],
+                   curve = TRUE)
+plot(pr_obj, main = "Precision–Recall Curve")
+
+# -------------------------------------------------
+# 9. Optimal threshold: Youden's J
+# -------------------------------------------------
+best_coords <- coords(roc_obj, "best", ret = c("threshold", "sensitivity", "specificity"), transpose = FALSE)
+cat("Best threshold (Youden's J):", best_coords$threshold, "\n")
+
+# -------------------------------------------------
+# 10. Optimal threshold: F1 score
+# -------------------------------------------------
+thresholds <- seq(0, 1, by = 0.01)
+f1_scores <- sapply(thresholds, function(t) {
+  pred <- ifelse(probs$Yes > t, "Yes", "No")
+  cm <- confusionMatrix(factor(pred, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
+  precision <- cm$byClass["Pos Pred Value"]
+  recall <- cm$byClass["Sensitivity"]
+  if (is.na(precision) | is.na(recall) | (precision + recall) == 0) return(0)
+  2 * (precision * recall) / (precision + recall)
+})
+
+best_f1_threshold <- thresholds[which.max(f1_scores)]
+cat("Best threshold (F1 score):", best_f1_threshold, "\n")
+
+# -------------------------------------------------
+# 11. Final evaluation at best F1 threshold
+# -------------------------------------------------
+custom_pred <- ifelse(probs$Yes > best_f1_threshold, "Yes", "No")
+confusionMatrix(factor(custom_pred, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
+
+
+```
+
+```{r}
+new_person <- data.frame(
+  latitude = 53.2,
+  longitude = 6.6,
+  age = 45,
+  gender = "FEMALE",
+  body_weight = 78,
+  waist_circumference = 92
+)
+
+new_person_num <- predict(dummies, newdata = new_person) %>% as.data.frame()
+
+# Make sure missing dummy columns are added with 0
+missing_cols <- setdiff(names(train_balanced)[-ncol(train_balanced)], names(new_person_num))
+for (col in missing_cols) new_person_num[[col]] <- 0
+
+# Predict
+pred_class <- predict(model, newdata = new_person_num)
+pred_prob  <- predict(model, newdata = new_person_num, type = "prob")
+
+print(pred_class)
+print(pred_prob)
+
+```
+
+TODO:
+- It is difficult to predict true as true, because there are a lot more negative cases, maybe ask Fenna for a way to improve
+- join with T_3 diabetes
+- Add new parameters
