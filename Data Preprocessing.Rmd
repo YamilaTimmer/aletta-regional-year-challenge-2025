@@ -184,3 +184,17 @@ There also seem to be participants included from different regions, we remove al
 data_of_interest <- data_of_interest %>%
   filter(provincie %in% c("Drenthe", "Friesland", "Groningen"))
 ```
+
+For diabetes presence, `1` is used to indicate diabetes and `2` is used to indicate that the patient does not have diabetes, for this scenario it would be more logical to use `0` to indicate absence of diabetes, so that is what we change below:
+```{r}
+data_of_interest$diabetes_presence_1[data_of_interest$diabetes_presence_1 == 2] <- 0
+data_of_interest$diabetes_presence_2[data_of_interest$diabetes_presence_2 == 2] <- 0
+data_of_interest$diabetes_presence_3[data_of_interest$diabetes_presence_3 == 2] <- 0
+
+```
+
+```{r}
+data_of_interest$gender[data_of_interest$gender == "MALE"] <- 0
+data_of_interest$gender[data_of_interest$gender == "FEMALE"] <- 1
+
+```

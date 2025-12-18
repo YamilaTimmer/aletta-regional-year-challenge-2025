@@ -64,7 +64,7 @@ data_of_interest <- data_of_interest %>%
       diabetes_presence_2 == 1 |
       diabetes_presence_3 == 1,
       1, 
-      2 
+      0
     )
   )
 
@@ -76,7 +76,6 @@ gg_miss_var(data_of_interest) +
   ylab("N. of missing values")
 
 ```
-
 
 # Machine learning model
 
@@ -92,17 +91,33 @@ library(pROC)
 library(PRROC)
 ```
 
+A lot of numerical variables exist in the data set, like `body_weigth`, `latitude`, and `cholesterol`. These are all differently distributed and thus need to be scaled to a scale of 0-1, so that one numerical variable with high values will not be counted heavier as a numerical variable with low values.
+```{r}
+# scaling of numerical variables
+data_of_interest <- data_of_interest %>%
+  mutate(across(where(is.numeric),
+                ~ (. - min(., na.rm = TRUE)) /
+                  (max(., na.rm = TRUE) - min(., na.rm = TRUE))))
+
+```
+
+
 ```{r}
 # -------------------------------------------------
 # 1. Load and prepare data
 # -------------------------------------------------
+library(dplyr)
+library(caret)
+library(pROC)
+library(isotree)
+
 machine_learning_data <- data_of_interest
 
-# Choose predictor variables
 predictor_vars <- c(
   "latitude", "longitude", "age", "body_weight_1", 
   "circumference_hip_1", "circumference_waist_1", 
-  "kcal_intake", "nova_foodintake_1", "nova_foodintake_4"
+  "kcal_intake", "nova_foodintake_1", "nova_foodintake_4", 
+  "alcohol_intake", "kcal_intake","added_sugar"
 )
 
 machine_learning_data <- machine_learning_data %>%
@@ -116,123 +131,104 @@ train_index <- createDataPartition(machine_learning_data$new_diabetes, p = 0.8, 
 train_data <- machine_learning_data[train_index, ]
 test_data  <- machine_learning_data[-train_index, ]
 
-# Convert outcome to factor
-train_data$new_diabetes <- factor(ifelse(train_data$new_diabetes == 1, "Yes", "No"), levels = c("No","Yes"))
-test_data$new_diabetes  <- factor(ifelse(test_data$new_diabetes == 1, "Yes", "No"), levels = c("No","Yes"))
-
 # -------------------------------------------------
 # 3. Dummy encode predictors
 # -------------------------------------------------
 dummies <- dummyVars(~ ., data = train_data %>% select(-new_diabetes), fullRank = FALSE)
-X_num <- predict(dummies, newdata = train_data %>% select(-new_diabetes)) %>% as.data.frame()
-y <- train_data$new_diabetes
+X_train <- predict(dummies, newdata = train_data %>% select(-new_diabetes)) %>% as.data.frame()
+X_test  <- predict(dummies, newdata = test_data %>% select(-new_diabetes)) %>% as.data.frame()
 
 # -------------------------------------------------
-# 4. Apply SMOTE for class balancing
+# 4. Fit Isolation Forest on training data
 # -------------------------------------------------
-balanced <- SMOTE(X_num, y, K = 5)
-train_balanced <- balanced$data
-colnames(train_balanced)[ncol(train_balanced)] <- "new_diabetes"
-train_balanced$new_diabetes <- factor(train_balanced$new_diabetes, levels = c("No","Yes"))
-
-# -------------------------------------------------
-# 5. Train RandomForest with higher weight for 'Yes'
-# -------------------------------------------------
-library(randomForest)
-model <- randomForest(
-  new_diabetes ~ .,
-  data = train_balanced,
-  classwt = c("No" = 1, "Yes" = 100)  # increases sensitivity for Yes
+# Treat diabetics as anomalies (rare class)
+iso_model <- isolation.forest(
+  X_train,
+  ntrees = 500,
+  sample_size = min(256, nrow(X_train)),
+  nthreads = 2
 )
 
 # -------------------------------------------------
-# 6. Prepare test set
+# 5. Predict anomaly score on test set
 # -------------------------------------------------
-test_num <- predict(dummies, newdata = test_data %>% select(-new_diabetes)) %>% as.data.frame()
-test_num$new_diabetes <- test_data$new_diabetes
+# Higher score -> more anomalous -> more likely diabetic
+scores <- predict(iso_model, X_test, type = "score")
 
 # -------------------------------------------------
-# 7. Predict probabilities
+# 6. Choose threshold for high sensitivity
 # -------------------------------------------------
-probs <- predict(model, newdata = test_num, type = "prob")
-prob_yes <- probs[, "Yes"]  # extract probability for 'Yes'
-
-# -------------------------------------------------
-# 8. ROC curve
-# -------------------------------------------------
-library(pROC)
-roc_obj <- roc(test_num$new_diabetes, prob_yes, levels = c("No","Yes"))
-plot(roc_obj, col = "blue", lwd = 2, main = "ROC Curve")
+# Use ROC curve to select threshold
+roc_obj <- roc(test_data$new_diabetes, scores, levels = c(0,1))
+plot(roc_obj, col = "blue", lwd = 2, main = "Isolation Forest ROC")
 cat("AUC:", auc(roc_obj), "\n")
 
-# -------------------------------------------------
-# 9. Choose threshold for high sensitivity
-# -------------------------------------------------
-coords_sens <- coords(roc_obj, x = "all", ret = c("threshold", "sensitivity", "specificity"))
-high_sens_threshold <- 0.05
-cat("Threshold for high sensitivity:", high_sens_threshold, "\n")
+# Example: pick threshold giving max sensitivity while specificity >= 0.7
+roc_coords <- coords(roc_obj, x = "all", ret = c("threshold", "sensitivity", "specificity"))
+valid_points <- roc_coords[roc_coords$specificity >= 0.7, ]
+best_point <- valid_points[which.max(valid_points$sensitivity), ]
+best_threshold <- best_point$threshold
+cat("Threshold for max sensitivity at specificity >= 0.7:", best_threshold, "\n")
 
 # -------------------------------------------------
-# 10. Final evaluation using chosen threshold
+# 7. Class prediction using threshold
 # -------------------------------------------------
-custom_pred <- ifelse(prob_yes > high_sens_threshold, "Yes", "No")
-confusionMatrix(factor(custom_pred, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
+custom_pred <- ifelse(scores > best_threshold, 1, 0)
 
 # -------------------------------------------------
-# 11. Optional: F1 score threshold optimization
+# 8. Confusion Matrix
 # -------------------------------------------------
-thresholds <- seq(0, 1, by = 0.01)
-f1_scores <- sapply(thresholds, function(t) {
-  pred <- ifelse(prob_yes > t, "Yes", "No")
-  cm <- confusionMatrix(factor(pred, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
-  precision <- cm$byClass["Pos Pred Value"]
-  recall <- cm$byClass["Sensitivity"]
-  if (is.na(precision) | is.na(recall) | (precision + recall) == 0) return(0)
-  2 * (precision * recall) / (precision + recall)
-})
-best_f1_threshold <- thresholds[which.max(f1_scores)]
-cat("Best threshold (F1 score):", best_f1_threshold, "\n")
+library(caret)
+confusionMatrix(
+  factor(custom_pred, levels = c(0,1)),
+  factor(test_data$new_diabetes, levels = c(0,1)),
+  positive = "1"
+)
 
-custom_pred_f1 <- ifelse(prob_yes > best_f1_threshold, "Yes", "No")
-confusionMatrix(factor(custom_pred_f1, levels=c("No","Yes")), test_num$new_diabetes, positive="Yes")
+
 ```
 
 ```{r}
+# -------------------------------------------------
+# Prepare new person data
+# -------------------------------------------------
 new_person <- data.frame(
-  latitude = 53.2,
-  longitude = 6.6,
-  age = 45,
-  body_weight_1 = 158,
-  circumference_waist_1 = 142,
-  circumference_hip_1 = 110,
-  kcal_intake = 4400,
-  nova_foodintake_1 = 100,
-  nova_foodintake_4 = 300
-  
+  latitude = 0.43,
+  longitude = 0.65,
+  age = 0.53,
+  body_weight_1 = 0.36,
+  circumference_waist_1 = 0.50,
+  circumference_hip_1 = 0.43,
+  kcal_intake = 0.24,
+  nova_foodintake_1 = 0,
+  nova_foodintake_4 = 0,
+  alcohol_intake = 0,
+  added_sugar = 0
 )
 
-
+# Dummy encode
 new_person_num <- predict(dummies, newdata = new_person) %>% as.data.frame()
 
-
-# Make sure missing dummy columns are added with 0
-missing_cols <- setdiff(names(train_balanced)[-ncol(train_balanced)], names(new_person_num))
+# Add missing columns with 0
+missing_cols <- setdiff(names(X_train), names(new_person_num))
 for (col in missing_cols) new_person_num[[col]] <- 0
 
-# Predict
-pred_class <- predict(model, newdata = new_person_num)
-pred_prob  <- predict(model, newdata = new_person_num, type = "prob")
+# Order columns like training data
+new_person_num <- new_person_num[, names(X_train)]
 
-print(pred_class)
-print(pred_prob)
+# -------------------------------------------------
+# Predict anomaly score
+# -------------------------------------------------
+new_score <- predict(iso_model, as.matrix(new_person_num), type = "score")
 
+# Risk score between 0 and 1 (clipped)
+risk_score <- (new_score - min(train_scores)) / (max(train_scores) - min(train_scores))
+risk_score <- min(max(risk_score, 0), 1)
+
+cat("Anomaly score:", round(new_score,4), "\n")
+cat("Risk score (0-1):", round(risk_score,4), "\n")
+cat("Predicted class:", ifelse(risk_score > best_threshold, "Yes", "No"), "\n")
 ```
-
-TODO:
-- It is difficult to predict true as true, because there are a lot more negative cases, maybe ask Fenna for a way to improve
-- join with T_3 diabetes
-- Add new parameters
-
 
 # Hypertension
 ## Background info
