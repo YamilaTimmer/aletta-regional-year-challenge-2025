@@ -1,0 +1,129 @@
+---
+title: "EDA Lifelines Food Environment"
+author: "Yamila Timmer"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::downcute:
+    fig_caption: false
+    lightbox: true
+    gallery: true
+    toc_depth: 4
+    embed_fonts: true
+    use_bookdown: true
+    mathjax: "rmdformats"
+    highlight: "tango"
+    default_style: "light"
+    downcute_theme: "default"
+  
+---
+
+```{r, warning = FALSE, message = FALSE}
+# Load libraries
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(ggforce)
+library(heatmaply)
+library(UpSetR)
+library(naniar)
+```
+
+After each looking into different variables that have to do with food environment, we have decided to continue with the following variables:
+
+- Zipcode
+- Body weight & body height (BMI)
+- All nova food intakes (1-4)
+- Added sugar intake
+- Alcohol intake
+- Kcal intake
+- Presence of diabetes
+
+Using these variables as a basis, we hope to be able to create machine learning algorithms to predict food intakes based on location and hope to further be able to link this to disease prevalence, such as diabetes or obesity. We came up with using the zipcode as an underlying factor, as we saw a consistent pattern on the lifelines interactive map, where certain health problems seemed more prevalent on the east side of the northern provinces, bordering Germany.
+
+As we would like to make a user-friendly interactive data dashboard we first have to convert zipcodes to corresponding town- or city names. We are more interested in patterns within a whole town/city than specifically looking at differences between zip codes (as there might be very few participants per zipcode, not giving a realistic or reliable representation).
+
+```{r}
+# dataset for converting zipcode to town/city
+zipcode_data <- read.csv("data/4pp.csv", header = TRUE)
+
+# Lifelines dataset
+data <- read.csv("data/Lifelines Dataset.csv ", header = TRUE, na.strings=c("NA","NaN", "")) # Convert NA, NaN and "" (blank field) to NA for uniformity
+```
+
+
+```{r}
+# Selecting columns of interest
+data_of_interest <- data %>%
+  select(zip_code_T1_M,
+         bodyweight_kg_all_m_1_T1_M,
+         bodylength_cm_all_m_1_T1_M, 
+         addedsugar_intake_adu_c_1_T1_QF,
+         alcohol_intake_adu_c_1_T1_QF,
+         kcal_intake_adu_c_1_T1_QF,
+         nova_foodintake_adu_c_1_T1_QU,
+         nova_foodintake_adu_c_2_T1_QU,
+         nova_foodintake_adu_c_3_T1_QU,
+         nova_foodintake_adu_c_4_T1_QU,
+         diabetes_presence_adu_q_1_T1_Q1,
+         age_1a_q_1,
+         gender_T1_M)
+
+```
+
+As the names of the columns are quite long and thus a bit inconvenient to work with, we will rename the columns.
+```{r}
+data_of_interest <- data_of_interest %>%
+  rename(zipcode = zip_code_T1_M,
+         body_weight = bodyweight_kg_all_m_1_T1_M,
+         body_length = bodylength_cm_all_m_1_T1_M,
+         added_sugar = addedsugar_intake_adu_c_1_T1_QF,
+         alcohol_intake = alcohol_intake_adu_c_1_T1_QF,
+         kcal_intake = kcal_intake_adu_c_1_T1_QF,
+         nova_foodintake_1 = nova_foodintake_adu_c_1_T1_QU,
+         nova_foodintake_2 = nova_foodintake_adu_c_2_T1_QU,
+         nova_foodintake_3 = nova_foodintake_adu_c_3_T1_QU,
+         nova_foodintake_4 = nova_foodintake_adu_c_4_T1_QU,
+         diabetes_presence = diabetes_presence_adu_q_1_T1_Q1,
+         age = age_1a_q_1,
+         gender = gender_T1_M)
+```
+
+Let's check the missing values, some zipcodes seem to be missing (`r sum(is.na(data_of_interest$zipcode))` to be precise), we will remove those before moving on.
+```{r}
+gg_miss_var(data_of_interest) + 
+  ylab("N. of missing values")
+```
+```{r}
+data_of_interest <- data_of_interest %>%
+  filter(!is.na(zipcode))
+
+```
+
+
+Below we join the "woonplaats" column of the zipcode dataset with the lifelines dataset, so that we have data on what zipcode corresponds to what city.
+```{r}
+data_of_interest <- data_of_interest %>%
+    left_join(zipcode_data %>% select(latitude, longitude, postcode, woonplaats, gemeente, provincie), 
+              by = c("zipcode" = "postcode"))
+
+```
+
+After merging the data with the cities, 3 zipcodes seem to have NA for city, meaning the zipcode was not present in the zipcode dataset, so we will manually have to add these following:
+
+```
+52.77472 6.49981 7928 Stuifzand Midden-Drenthe Drenthe
+53.22564 6.65860 9613 Meerstad Groningen Groningen
+52.74963 6.58211 7910 Nieuweroord Midden-Drenthe Drenthe
+```
+
+There also seem to be participants included from different regions, we remove all except for those from the provinces Drenthe, Groningen, Friesland.
+
+```{r}
+data_of_interest <- data_of_interest %>%
+  filter(provincie %in% c("Drenthe", "Friesland", "Groningen"))
+
+
+```
+
+

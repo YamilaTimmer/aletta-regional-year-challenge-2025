@@ -19,12 +19,36 @@ library(naniar)
 
 ```{r}
 #processed data set with converted zipcodes
-data_of_interest <- read.csv("data/data of interest.csv")
+data_of_interest <- read.csv("data/data_of_interest.csv")
 
 
 #Split data into east and west
 threshold <- median(data_of_interest$longitude, na.rm = TRUE)
 data_of_interest$region <- ifelse(data_of_interest$longitude > threshold, "East", "West")
+```
+
+Removing low kcal consumption
+```{r}
+#mean kcal intake
+mean_kcal <- mean(data_of_interest$kcal_intake, na.rm = TRUE)
+table_mean <- data.frame(Mean_kcal_intake = mean_kcal)
+table_mean
+
+data_of_interest %>%
+  group_by(gender) %>%
+  summarise(mean_kcal = mean(kcal_intake, na.rm = TRUE))
+
+#cutoff low kcal intake (<500)
+df_filtered <- data_of_interest %>%
+  filter(kcal_intake >= 500)
+
+new_mean_kcal <- mean(df_filtered$kcal_intake, na.rm = TRUE)
+table_mean_new <- data.frame(new_mean_kcal_intake = new_mean_kcal)
+table_mean_new
+
+df_filtered %>%
+  group_by(gender) %>%
+  summarise(mean_kcal = mean(kcal_intake, na.rm = TRUE))
 ```
 
 
@@ -62,8 +86,8 @@ summary_data$variable <- gsub("mean_", "", summary_data$variable)
 # Plot
 ggplot(summary_data, aes(x = variable, y = value, fill = region)) +
   geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Comparison of intake total kcal, nova1, and nova4 by Region",
-       x = "", y = "Mean Value") +
+  labs(title = "Comparison of intake total kcal, unprocessed, and ultra-processed by east and west",
+       x = "", y = "Intake (different units)") +
   theme_classic()
 ```
 The east has higher total calorie intake, and consumes more processed and unprocessed food.
@@ -72,6 +96,7 @@ Is there a significant differences for calorie intake and (un)processed food con
 ```{r}
 t.test(kcal_intake ~ region, data = data_of_interest)
 t.test(nova_foodintake_1 ~ region, data = data_of_interest)
+t.test(nova_foodintake_3 ~ region, data = data_of_interest)
 t.test(nova_foodintake_4 ~ region, data = data_of_interest)
 ```
 Yes there are significant differences for kcal intake, nova1 and nova4 consumption. Noteably nova1 showed the highest P-value, showing it's the least significant.
@@ -84,5 +109,61 @@ ggplot(data_of_interest, aes(x = longitude, y = kcal_intake)) +
   labs(title = "Relationship between Longitude and kcal intake",
        x = "Longitude", y = "kcal intake") +
   theme_minimal()
+
+ggplot(data_of_interest, aes(x = longitude, y = nova_foodintake_1)) +
+  geom_point(alpha = 0.4, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkred") +
+  labs(title = "Relationship between Longitude and kcal intake",
+       x = "Longitude", y = "Unprocessed food intake (g/day)") +
+  theme_minimal()
+
+ggplot(data_of_interest, aes(x = longitude, y = nova_foodintake_4)) +
+  geom_point(alpha = 0.4, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkred") +
+  labs(title = "Relationship between Longitude and kcal intake",
+       x = "Longitude", y = "Ultra-processed food intake (g/day)") +
+  theme_minimal()
+```
+
+```{r}
+# Reshape data into long format
+data_long <- data_of_interest %>%
+  pivot_longer(
+    cols = c(kcal_intake, nova_foodintake_1, nova_foodintake_4),
+    names_to = "variable",
+    values_to = "intake"
+  )
+
+# Define readable labels
+variable_labels <- c(
+  kcal_intake = "Kcal intake (kcal/day)",
+  nova_foodintake_1 = "Unprocessed food (g/day)",
+  nova_foodintake_4 = "Ultra-processed food (g/day)"
+)
+
+# Plot trendlines
+ggplot(data_long, aes(x = longitude, y = intake, color = variable)) +
+  geom_smooth(method = "lm", se = FALSE, size = 1.2) +
+  scale_color_manual(
+    values = c(
+      "kcal_intake" = "#E41A1C",      # red
+      "nova_foodintake_1" = "#377EB8", # blue
+      "nova_foodintake_4" = "#4DAF4A"  # green
+    ),
+    labels = variable_labels
+  ) +
+  labs(
+    title = "Food intake vs Longitude",
+    x = "Longitude",
+    y = "Intake (different units)",
+    color = "Variable"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank()
+  )
+
+
 ```
 
