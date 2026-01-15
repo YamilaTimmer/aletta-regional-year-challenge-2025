@@ -63,16 +63,13 @@ data_of_interest <- data %>%
          
          bodyweight_kg_all_m_1_T1_M,
          bodyweight_kg_all_m_1_T2_M,
-         bodyweight_kg_all_m_1_T3_M,
-         
+
          circumference_hip_all_m_1_T1_M,
          circumference_hip_all_m_1_T2_M,
-         circumference_hip_all_m_1_T3_M,
 
          circumference_waist_all_m_1_T1_M,
          circumference_waist_all_m_1_T2_M,
-         circumference_waist_all_m_1_T3_M,
-         
+
          addedsugar_intake_adu_c_1_T1_QF,
          alcohol_intake_adu_c_1_T1_QF,
          kcal_intake_adu_c_1_T1_QF,
@@ -81,22 +78,21 @@ data_of_interest <- data %>%
          
          diabetes_presence_adu_q_1_T1_Q1,
          diabetes_followup_adu_q_1_T2_Q1,
-         diabetes_followup_adu_q_1_T3_Q1,
-         
+
          cholesterol_result_all_m_1_T1_S,
          cholesterol_result_all_m_1_T2_S,
-         cholesterol_result_all_m_1_T3_S,
-         
-         glucose_result_all_m_1_T3_S,
-         glucose_result_all_m_1_T3_S,
-         glucose_result_all_m_1_T3_S,
-         
+
+         glucose_result_all_m_1_T1_S,
+         glucose_result_all_m_1_T2_S,
+
          bpavg_diastolic_all_m_1_T1_BP,
          bpavg_systolic_all_m_1_T1_BP,
          bpavg_diastolic_all_m_1_T2_BP,
          bpavg_systolic_all_m_1_T2_BP,
-         bpavg_diastolic_all_m_1_T3_BP,
-         bpavg_systolic_all_m_1_T3_BP
+         
+         asthma_presence_adu_q_1_T1_Q1,
+         copd_presence_adu_q_1_T1_Q1,
+         burnout_presence_adu_q_1_T1_Q1
          )
 
 ```
@@ -110,17 +106,14 @@ data_of_interest <- data_of_interest %>%
          
          body_weight_1 = bodyweight_kg_all_m_1_T1_M,
          body_weight_2 = bodyweight_kg_all_m_1_T2_M,
-         body_weight_3 = bodyweight_kg_all_m_1_T3_M,
          body_length_1 = bodylength_cm_all_m_1_T1_M,
          
          circumference_hip_1 = circumference_hip_all_m_1_T1_M,
          circumference_hip_2 = circumference_hip_all_m_1_T2_M,
-         circumference_hip_3 = circumference_hip_all_m_1_T3_M,
 
          circumference_waist_1 = circumference_waist_all_m_1_T1_M,
          circumference_waist_2 = circumference_waist_all_m_1_T2_M,
-         circumference_waist_3 = circumference_waist_all_m_1_T3_M,
-         
+
          added_sugar = addedsugar_intake_adu_c_1_T1_QF,
          alcohol_intake = alcohol_intake_adu_c_1_T1_QF,
          kcal_intake = kcal_intake_adu_c_1_T1_QF,
@@ -129,24 +122,27 @@ data_of_interest <- data_of_interest %>%
          
          diabetes_presence_1 = diabetes_presence_adu_q_1_T1_Q1,
          diabetes_presence_2 = diabetes_followup_adu_q_1_T2_Q1,
-         diabetes_presence_3 = diabetes_followup_adu_q_1_T3_Q1,
-         
+
          cholesterol_1 = cholesterol_result_all_m_1_T1_S,
          cholesterol_2 = cholesterol_result_all_m_1_T2_S,
-         cholesterol_3 = cholesterol_result_all_m_1_T3_S,
-         
-         glucose_1 = glucose_result_all_m_1_T3_S,
-         glucose_2 = glucose_result_all_m_1_T3_S,
-         glucose_3 = glucose_result_all_m_1_T3_S,
-         
+
+         glucose_1 = glucose_result_all_m_1_T1_S,
+         glucose_2 = glucose_result_all_m_1_T2_S,
+
          diastolic_pressure_1 = bpavg_diastolic_all_m_1_T1_BP,
          systolic_pressure_1 = bpavg_systolic_all_m_1_T1_BP,
          diastolic_pressure_2 = bpavg_diastolic_all_m_1_T2_BP,
          systolic_pressure_2 = bpavg_systolic_all_m_1_T2_BP,
-         diastolic_pressure_3 = bpavg_diastolic_all_m_1_T3_BP,
-         systolic_pressure_3 = bpavg_systolic_all_m_1_T3_BP
+         
+         asthma_presence = asthma_presence_adu_q_1_T1_Q1,
+         copd_presence = copd_presence_adu_q_1_T1_Q1,
+         burnout_presence = burnout_presence_adu_q_1_T1_Q1
          )
+
 data_of_interest$age <- data_of_interest$age/12
+data_of_interest$body_length_1 = data_of_interest$body_length_1/100
+data_of_interest$bmi_t1 = data_of_interest$body_weight_1 / (data_of_interest$body_length_1^2)
+
 
 ```
 
@@ -189,12 +185,47 @@ For diabetes presence, `1` is used to indicate diabetes and `2` is used to indic
 ```{r}
 data_of_interest$diabetes_presence_1[data_of_interest$diabetes_presence_1 == 2] <- 0
 data_of_interest$diabetes_presence_2[data_of_interest$diabetes_presence_2 == 2] <- 0
-data_of_interest$diabetes_presence_3[data_of_interest$diabetes_presence_3 == 2] <- 0
 
 ```
 
 ```{r}
 data_of_interest$gender[data_of_interest$gender == "MALE"] <- 0
 data_of_interest$gender[data_of_interest$gender == "FEMALE"] <- 1
+data_of_interest$gender <- as.numeric(data_of_interest$gender)
+```
+
+
+Removing low kcal consumption
+
+
+```{r}
+# Mean intake overall
+mean_kcal <- mean(data_of_interest$kcal_intake, na.rm = TRUE)
+sprintf("mean kcal intake:, %s", round(mean_kcal))
+
+# Mean intake per gender, 0 = male, 1 = female
+data_of_interest %>%
+  group_by(gender) %>%
+  summarise(mean_kcal = mean(kcal_intake, na.rm = TRUE))
 
 ```
+
+Looking at the mean intake, the caloric consumption seems a bit on the low side. As an average man needs ~2500 kcal a day and an average woman needs ~2000 kcal a day. Source: https://www.nhs.uk/live-well/healthy-weight/managing-your-weight/understanding-calories/ 
+
+`r sum(data_of_interest$kcal_intake < 500)` people seem to have a daily average consumption of less than 500 kcal, this does not seem sufficient nor sustainable in the long term, so this is where we choose to draw a limit and remove these values. The kcal intake is based on self-reporting and thus not always as accurate.
+
+
+```{r}
+df_filtered <- data_of_interest %>%
+  filter(kcal_intake >= 500)
+
+new_mean_kcal <- mean(df_filtered$kcal_intake, na.rm = TRUE)
+data.frame(new_mean_kcal_intake = new_mean_kcal)
+
+
+df_filtered %>%
+  group_by(gender) %>%
+  summarise(mean_kcal = mean(kcal_intake, na.rm = TRUE))
+```
+
+After removing the low kcal intake participants, the new mean is `r new_mean_kcal_intake`, this is `r new_mean_kcal_intake - mean_kcal` higher.

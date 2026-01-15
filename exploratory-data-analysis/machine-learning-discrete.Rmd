@@ -20,56 +20,16 @@ In this notebook I will make a categorical machine learning model that can predi
 
 The data of interest has already been constructed after running the data pre-processing R markdown file, however to train specific models for diabetes/hypertension prediction, some missing values will have to be dealt with.
 
+```{r}
+#imports
+library(tidyverse)
+library(tidyverse)
+library(pROC)
+```
+
 # Diabetes prediction
 
-The dataset contains 3 variables needed to determine diabetes occurence, which are the 3 seperate diabetes 'checks'. Lifelines has 3 different timepoints, each around 5-10 years apart. For the first timepoint the participant is asked whether they have diabetes. Here 2 equals 'no' and 1 equals 'yes'. Then at T2, several years later, participants are asked if they have developed diabetes in the time between T1 and T2. Again here 2 equals 'no' and 1 equals 'yes'. Lastly, the participants are asked at T3 if they have developed diabetes between T2 and T3.
-```{r}
-data_of_interest <- data_of_interest %>%
-  filter(!is.na(gender)) %>%
-  filter(!is.na(diabetes_presence_2)) %>%
-  filter(!is.na(diabetes_presence_1)) %>%
-  filter(!is.na(diabetes_presence_3)) %>%
-  filter(!is.na(nova_foodintake_4))
-
-```
-
-```{r}
-library(tidyverse)
-
-data_long <- data_of_interest %>%
-  pivot_longer(
-    cols = starts_with("diabetes_presence"),
-    names_to = "variable",
-    values_to = "value"
-  ) %>%
-  filter(value == 1)
-
-ggplot(data_long, aes(x = variable)) +
-  geom_bar() +
-  theme_minimal() +
-  labs(
-    x = "Timepoints",
-    y = "Amount of participants",
-    title = "Amount of new cases of diabetes per timepoint"
-  )
-
-```
-
-To be able to predict diabetes occurrence, we need a decent amount of data on participants that developed diabetes during Lifelines. We do not look at T1, as the survey made no distinction between diabetes type I and type II. As only type II is heavily correlated with food environment, we are only interested in this type. Type II often develops later in life, thus we will look only at T2 and T3. To get a more complete overview of what and how many participants develop diabetes during the complete duration of Lifelines we combine diabetes_presence_2 and diabetes_presence_3.
-
-```{r}
-data_of_interest <- data_of_interest %>%
-  mutate(
-    new_diabetes = if_else(
-      diabetes_presence_2 == 1 |
-      diabetes_presence_3 == 1,
-      1, 
-      0
-    )
-  )
-
-```
-
+The dataset contains 3 variables needed to determine diabetes occurence, which are the 3 seperate diabetes 'checks'. Lifelines has 3 different timepoints, each around 5-10 years apart. For the first timepoint the participant is asked whether they have diabetes. Here 2 equals 'no' and 1 equals 'yes'. Then at T2, several years later, participants are asked if they have developed diabetes in the time between T1 and T2. Again here 2 equals 'no' and 1 equals 'yes'. Lastly, the participants are asked at T3 if they have developed diabetes between T2 and T3. To be able to predict diabetes occurrence, we need a decent amount of data on participants that developed diabetes during Lifelines. We do not look at T1, as the survey made no distinction between diabetes type I and type II. As only type II is heavily correlated with food environment, we are only interested in this type. Type II often develops later in life. For this model we focus on patients that develop diabetes between T1 and T2. 
 
 ```{r}
 gg_miss_var(data_of_interest) + 
@@ -77,296 +37,290 @@ gg_miss_var(data_of_interest) +
 
 ```
 
-# Machine learning model
+In total `r sum(data_of_interest$new_diabetes == 1)` people have diabetes at at least one point during Lifelines, meaning they could be a good predictor for whether other people are at risk of also developing diabetes.
+
+## Machine learning model
 
 ```{r}
-# -------------------------------------------------
-# 0. Load packages
-# -------------------------------------------------
-library(tidyverse)
-library(caret)
-library(smotefamily)
-library(randomForest)
-library(pROC)
-library(PRROC)
+# =================================================
+# 1. DATA PREPARATION
+# =================================================
+
+# Make new onset column for people that develop diabetes between T1/T2
+diabetes_data <- data_of_interest %>%
+  filter(
+    !is.na(diabetes_presence_1),
+    !is.na(diabetes_presence_2)
+  ) %>%
+
+  mutate(
+    diabetes_new_onset = if_else(
+      diabetes_presence_1 == 0 & diabetes_presence_2 == 1, 1, 0
+    ),
+  ) %>%
+  filter(diabetes_presence_1 == 0) 
 ```
 
-A lot of numerical variables exist in the data set, like `body_weigth`, `latitude`, and `cholesterol`. These are all differently distributed and thus need to be scaled to a scale of 0-1, so that one numerical variable with high values will not be counted heavier as a numerical variable with low values.
-```{r}
-# scaling of numerical variables
-data_of_interest <- data_of_interest %>%
-  mutate(across(where(is.numeric),
-                ~ (. - min(., na.rm = TRUE)) /
-                  (max(., na.rm = TRUE) - min(., na.rm = TRUE))))
-
-```
-
 
 ```{r}
-# -------------------------------------------------
-# 1. Load and prepare data
-# -------------------------------------------------
-library(dplyr)
-library(caret)
-library(pROC)
-library(isotree)
+# =================================================
+# 2. LOGISTIC REGRESSION MODEL
+# =================================================
 
-machine_learning_data <- data_of_interest
-
-predictor_vars <- c(
-  "latitude", "longitude", "age", "body_weight_1", 
-  "circumference_hip_1", "circumference_waist_1", 
-  "kcal_intake", "nova_foodintake_1", "nova_foodintake_4", 
-  "alcohol_intake", "kcal_intake","added_sugar"
+# Create model and select predictor variables
+model <- glm(
+  diabetes_new_onset ~ 
+    age +
+    bmi_t1 +
+    circumference_waist_1 + 
+    gender + 
+    circumference_hip_1 + 
+    latitude + 
+    longitude +
+    alcohol_intake + 
+    nova_foodintake_1 +   
+    nova_foodintake_4,
+  data = diabetes_data,
+  family = binomial
 )
 
-machine_learning_data <- machine_learning_data %>%
-  select(all_of(c(predictor_vars, "new_diabetes")))
-
-# -------------------------------------------------
-# 2. Train/test split
-# -------------------------------------------------
-set.seed(123)
-train_index <- createDataPartition(machine_learning_data$new_diabetes, p = 0.8, list = FALSE)
-train_data <- machine_learning_data[train_index, ]
-test_data  <- machine_learning_data[-train_index, ]
-
-# -------------------------------------------------
-# 3. Dummy encode predictors
-# -------------------------------------------------
-dummies <- dummyVars(~ ., data = train_data %>% select(-new_diabetes), fullRank = FALSE)
-X_train <- predict(dummies, newdata = train_data %>% select(-new_diabetes)) %>% as.data.frame()
-X_test  <- predict(dummies, newdata = test_data %>% select(-new_diabetes)) %>% as.data.frame()
-
-# -------------------------------------------------
-# 4. Fit Isolation Forest on training data
-# -------------------------------------------------
-# Treat diabetics as anomalies (rare class)
-iso_model <- isolation.forest(
-  X_train,
-  ntrees = 500,
-  sample_size = min(256, nrow(X_train)),
-  nthreads = 2
-)
-
-# -------------------------------------------------
-# 5. Predict anomaly score on test set
-# -------------------------------------------------
-# Higher score -> more anomalous -> more likely diabetic
-scores <- predict(iso_model, X_test, type = "score")
-
-# -------------------------------------------------
-# 6. Choose threshold for high sensitivity
-# -------------------------------------------------
-# Use ROC curve to select threshold
-roc_obj <- roc(test_data$new_diabetes, scores, levels = c(0,1))
-plot(roc_obj, col = "blue", lwd = 2, main = "Isolation Forest ROC")
-cat("AUC:", auc(roc_obj), "\n")
-
-# Example: pick threshold giving max sensitivity while specificity >= 0.7
-roc_coords <- coords(roc_obj, x = "all", ret = c("threshold", "sensitivity", "specificity"))
-valid_points <- roc_coords[roc_coords$specificity >= 0.7, ]
-best_point <- valid_points[which.max(valid_points$sensitivity), ]
-best_threshold <- best_point$threshold
-cat("Threshold for max sensitivity at specificity >= 0.7:", best_threshold, "\n")
-
-# -------------------------------------------------
-# 7. Class prediction using threshold
-# -------------------------------------------------
-custom_pred <- ifelse(scores > best_threshold, 1, 0)
-
-# -------------------------------------------------
-# 8. Confusion Matrix
-# -------------------------------------------------
-library(caret)
-confusionMatrix(
-  factor(custom_pred, levels = c(0,1)),
-  factor(test_data$new_diabetes, levels = c(0,1)),
-  positive = "1"
-)
-
+summary(model)
 
 ```
 
 ```{r}
-# -------------------------------------------------
-# Prepare new person data
-# -------------------------------------------------
-new_person <- data.frame(
-  latitude = 0.43,
-  longitude = 0.65,
-  age = 0.53,
-  body_weight_1 = 0.36,
-  circumference_waist_1 = 0.50,
-  circumference_hip_1 = 0.43,
-  kcal_intake = 0.24,
-  nova_foodintake_1 = 0,
-  nova_foodintake_4 = 0,
+# =================================================
+# 3. ROC + AUC
+# =================================================
+
+# Predicted probabilities for the dataset
+pred_probs <- predict(model, newdata = diabetes_data, type = "response")
+
+# ROC object
+roc_obj <- roc(
+  response = diabetes_data$diabetes_new_onset,
+  predictor = pred_probs,
+  quiet = TRUE
+)
+
+# Print AUC
+print(paste("AUC:", auc(roc_obj)))
+
+# Plot ROC curve
+plot(
+  roc_obj,
+  col = "blue",
+  lwd = 3,
+  main = "ROC Curve for Logistic Regression Model"
+)
+
+```
+
+```{r}
+# =================================================
+# 4. CONFUSION MATRIX
+# =================================================
+
+# Low threshold is chosen, as new onset diabetes is very rare 
+threshold <- 0.03
+
+# Convert probabilities to predicted classes
+pred_class <- ifelse(pred_probs >= threshold, 1, 0)
+
+# Create confusion matrix
+conf_matrix <- table(
+  Actual = diabetes_data$diabetes_new_onset,
+  Predicted = pred_class
+)
+
+conf_matrix
+
+
+```
+
+Now we can try predicting new cases, below there are examples of a 'person' with low-risk and high-risk.
+
+```{r}
+# =================================================
+# 5. PREDICT NEW PERSON
+# =================================================
+
+# Low risk (e.g. healthy body mass, young age, etc.)
+low_risk_person <- data.frame(
+  age = 22,
+  gender = 0,                     # female
+  circumference_waist_1 = 65,
+  circumference_hip_1 = 90,
+  added_sugar = 5,
   alcohol_intake = 0,
-  added_sugar = 0
+  latitude = 52,
+  longitude = 6,
+  nova_foodintake_1 = 12,         # high unprocessed food intake
+  nova_foodintake_4 = 1,          # very low ultra-processed intake
+  bmi_t1 = 20                     # healthy BMI
 )
 
-# Dummy encode
-new_person_num <- predict(dummies, newdata = new_person) %>% as.data.frame()
 
-# Add missing columns with 0
-missing_cols <- setdiff(names(X_train), names(new_person_num))
-for (col in missing_cols) new_person_num[[col]] <- 0
+# High risk (e.g. high body mass, high age, etc.)
+high_risk_person <- data.frame(
+  age = 78,
+  gender = 1,                     # male (higher risk in your model)
+  circumference_waist_1 = 135,    # extreme abdominal obesity
+  circumference_hip_1 = 105,
+  added_sugar = 40,
+  alcohol_intake = 20,
+  latitude = 52,
+  longitude = 8,
+  nova_foodintake_1 = 0,          # almost no unprocessed food
+  nova_foodintake_4 = 12,         # very high ultra-processed intake
+  bmi_t1 = 42                     # severe obesity
+)
 
-# Order columns like training data
-new_person_num <- new_person_num[, names(X_train)]
 
-# -------------------------------------------------
-# Predict anomaly score
-# -------------------------------------------------
-new_score <- predict(iso_model, as.matrix(new_person_num), type = "score")
 
-# Risk score between 0 and 1 (clipped)
-risk_score <- (new_score - min(train_scores)) / (max(train_scores) - min(train_scores))
-risk_score <- min(max(risk_score, 0), 1)
+prob_low_risk <- predict(model, newdata = low_risk_person, type = "response")
+prob_high_risk <- predict(model, newdata = high_risk_person, type = "response")
 
-cat("Anomaly score:", round(new_score,4), "\n")
-cat("Risk score (0-1):", round(risk_score,4), "\n")
-cat("Predicted class:", ifelse(risk_score > best_threshold, "Yes", "No"), "\n")
+print(paste("Predicted risk (low risk person):", round(prob_low_risk * 100, 2), "%"))
+print(paste("Predicted risk (high risk person):", round(prob_high_risk * 100, 2), "%"))
+
 ```
+
+As expected, the risk of developing diabetes is much lower for the low risk person and relatively high for the high risk person. This percentage shows the risk of developing diabetes in the next 5-10 years, as that is the approximate time for people between T1 and T2.
+
+
 
 # Hypertension
 ## Background info
 
 Another disease, that can also be related to food environment, that we can add is hypertension. According to the national heart, lung and blood institute of the United States, a person has hypertension if their blood pressure is 130/80 or higher. With the first number being the systolic pressure and the second the diastolic pressure. We have data on both so we can look into how many people suffer from hypertension.
 
+
+
+## Machine learning model
+
 ```{r}
-# -------------------------------
-# 1. Define hypertension outcome
-# -------------------------------
-# Hypertension: systolic ≥130 OR diastolic ≥80
-data_of_interest <- data_of_interest %>%
+# =================================================
+# 1. DATA PREPARATION
+# =================================================
+
+hypertension_data <- data_of_interest %>%
+  filter(
+    !is.na(systolic_pressure_2),
+    !is.na(diastolic_pressure_2)
+  ) %>%
   mutate(
-    hypertension_t1 = if_else(systolic_pressure_1 >= 130 | diastolic_pressure_1 >= 80, 1, 0),
-    hypertension_t2 = if_else(systolic_pressure_2 >= 130 | diastolic_pressure_2 >= 80, 1, 0),
-    hypertension_t3 = if_else(systolic_pressure_3 >= 130 | diastolic_pressure_3 >= 80, 1, 0),
-    hypertension = case_when(
-      is.na(hypertension_t2) & is.na(hypertension_t3) ~ hypertension_t1,          # use T1 if T2 & T3 NA
-      is.na(hypertension_t3) & !is.na(hypertension_t2) ~ hypertension_t2,         # use T2 if T3 NA
-      TRUE ~ if_else(hypertension_t1 == 1 | hypertension_t2 == 1 | hypertension_t3 == 1, 1, 0)  # otherwise 1 if any = 1
-    )
-  )
+    hypertension_t1 = if_else(
+      systolic_pressure_1 >= 130 | diastolic_pressure_1 >= 80, 1, 0
+    ),
+    hypertension_t2 = if_else(
+      systolic_pressure_2 >= 130 | diastolic_pressure_2 >= 80, 1, 0
+    ),
+    hypertension_new_onset = if_else(
+      hypertension_t1 == 0 & hypertension_t2 == 1, 1, 0
+    ),
+  ) %>%
+  filter(hypertension_t1 == 0)
 
+```
+
+
+
+```{r}
+# =================================================
+# 2. LOGISTIC REGRESSION MODEL
+# =================================================
+
+model <- glm(
+  hypertension_new_onset ~ 
+    age + 
+    gender + 
+    circumference_waist_1 + 
+    latitude + 
+    alcohol_intake + 
+    nova_foodintake_1 +  
+    bmi_t1,
+  data = hypertension_data,
+  family = binomial
+)
+
+summary(model)
 
 ```
 
 ```{r}
+# =================================================
+# 3. ROC + AUC
+# =================================================
 
-# -------------------------------
-# 2. Prepare predictor variables
-# -------------------------------
-predictor_vars <- c(
-  "latitude", "longitude", "age", "body_weight_1",
-  "circumference_hip_1", "circumference_waist_1",
-  "kcal_intake", "nova_foodintake_1", "nova_foodintake_4"
+# Predicted probabilities for the dataset
+pred_probs <- predict(model, newdata = hypertension_data, type = "response")
+
+# ROC object
+roc_obj <- roc(
+  response = hypertension_data$hypertension_new_onset,
+  predictor = pred_probs,
+  quiet = TRUE
 )
 
-ml_data <- data_of_interest %>%
-  select(all_of(c(predictor_vars, "hypertension")))
+# Print AUC
+print(paste("AUC:", auc(roc_obj)))
 
-# -------------------------------
-# 3. Train/Test Split
-# -------------------------------
-set.seed(123)
-train_index <- createDataPartition(ml_data$hypertension, p = 0.8, list = FALSE)
-train_data <- ml_data[train_index, ]
-test_data  <- ml_data[-train_index, ]
-
-# Convert outcome to factor
-train_data$hypertension <- factor(ifelse(train_data$hypertension == 1, "Yes", "No"), levels=c("No","Yes"))
-test_data$hypertension  <- factor(ifelse(test_data$hypertension == 1, "Yes", "No"), levels=c("No","Yes"))
-
-# -------------------------------
-# 4. Dummy encode predictors
-# -------------------------------
-dummies <- dummyVars(~ ., data = train_data %>% select(-hypertension), fullRank = FALSE)
-X_num <- predict(dummies, newdata = train_data %>% select(-hypertension)) %>% as.data.frame()
-y <- train_data$hypertension
-
-# -------------------------------
-# 5. Apply SMOTE for class balancing
-# -------------------------------
-balanced <- SMOTE(X_num, y, K = 5)
-train_balanced <- balanced$data
-colnames(train_balanced)[ncol(train_balanced)] <- "hypertension"
-train_balanced$hypertension <- factor(train_balanced$hypertension, levels=c("No","Yes"))
-
-# -------------------------------
-# 6. Train RandomForest with class weights
-# -------------------------------
-model <- randomForest(
-  hypertension ~ .,
-  data = train_balanced,
-  classwt = c("No"=1, "Yes"=5)  # increase weight for Yes to improve sensitivity
+# Plot ROC curve
+plot(
+  roc_obj,
+  col = "blue",
+  lwd = 3,
+  main = "ROC Curve for Logistic Regression Model"
 )
 
-# -------------------------------
-# 7. Prepare test set
-# -------------------------------
-test_num <- predict(dummies, newdata = test_data %>% select(-hypertension)) %>% as.data.frame()
-test_num$hypertension <- test_data$hypertension
-
-# -------------------------------
-# 8. Predict probabilities
-# -------------------------------
-probs <- predict(model, newdata = test_num, type = "prob")
-prob_yes <- probs[, "Yes"]
-
-# -------------------------------
-# 9. ROC Curve and AUC
-# -------------------------------
-roc_obj <- roc(test_num$hypertension, prob_yes, levels=c("No","Yes"))
-plot(roc_obj, col="blue", lwd=2, main="ROC Curve")
-cat("AUC:", auc(roc_obj), "\n")
-
-# -------------------------------
-# 10. Select threshold for high sensitivity
-# -------------------------------
-coords_sens <- coords(roc_obj, x="all", ret=c("threshold", "sensitivity", "specificity"))
-high_sens_threshold <- coords_sens$threshold[which.max(coords_sens$sensitivity)]
-cat("Threshold for high sensitivity:", high_sens_threshold, "\n")
-
-# -------------------------------
-# 11. Evaluate model at chosen threshold
-# -------------------------------
-custom_pred <- ifelse(prob_yes > high_sens_threshold, "Yes", "No")
-confusionMatrix(factor(custom_pred, levels=c("No","Yes")), test_num$hypertension, positive="Yes")
 ```
 
 ```{r}
-# -------------------------------
-# 12. Predict new individual
-# -------------------------------
+# =================================================
+# 4. PREDICT NEW PERSON
+# =================================================
 new_person <- data.frame(
-  latitude = 53.2,
-  longitude = 6.6,
-  age = 80,
-  body_weight_1 = 200,
-  circumference_waist_1 = 150,
-  circumference_hip_1 = 150,
-  kcal_intake = 2500,
-  nova_foodintake_1 = 100,
-  nova_foodintake_4 = 3000
+  age = 20,
+  gender = 0,                     # female
+  circumference_waist_1 = 65,
+  circumference_hip_1 = 85,
+  added_sugar = 5,
+  alcohol_intake = 0,
+  latitude = 53,                  # higher latitude → lower risk in your model
+  longitude = 6,
+  nova_foodintake_1 = 8,
+  nova_foodintake_4 = 2,
+  bmi_t1 = 30,
+  diastolic_pressure_1 = 80,
+  systolic_pressure_1 = 120
 )
 
-new_person_num <- predict(dummies, newdata = new_person) %>% as.data.frame()
 
-# Add missing dummy columns
-missing_cols <- setdiff(names(train_balanced)[-ncol(train_balanced)], names(new_person_num))
-for (col in missing_cols) new_person_num[[col]] <- 0
-
-# Predict probability for new person
-prob_new <- predict(model, newdata = new_person_num, type="prob")[, "Yes"]
-cat("Predicted chance of developing hypertension in next 10 years:", round(prob_new*100,2), "%\n")
-
+prob <- predict(model, newdata = new_person, type = "response")
+print(paste("Predicted risk:", round(prob * 100, 2), "%"))
 
 
 ```
 
 
-## Distribution of hypertension
+
+
+
+If we look at a summary of the hypertension model, we can see what factors seem the most significant for the outcome, so which factors have the most meaningful effect on whether someone develops hypertension or not. The most significant factors seem to include: age, gender, bmi, waist circumference and cholesterol. Nova food intake 1 (non-processed food intake) seems to be significant, but not as severe as the aforementioned factors. Caloric intake, diabetes presence, added sugar, alcohol intake, latitude, longitude, hip circumference and nova food intake 4 all do not seem significant (p > 0.05)
+
+
+
+Looking at the model summary, we see the estimated size and direction of the effect, the standard error, the z-value (estimate/std error) and the p-value, which shows how likely the effect is caused by pure chance. Age has a positive estimate, indicating that risk increases with old age and seems to be a strong predictor, looking at the low p-value. Gender has a negative estimate, meaning the higher the number, the lower the risk. In this case, for age there are only two possible numbers, 0 for male and 1 for female. Meaning that the risk of hypertension is lower for women than for men. 
+
+
+Write something on limitations
+- Would have been better if there was more nutritional data to work with from more timepoints, as things like diet are highly subject to change, so only T1 and T2 were used, as the time between T1 and T3 is over 10 years
+- Cholesterol was also a significant predictor (p < 0.05), but not easily measurable at home so not used for our application
+
+clinical definition is >80 or >130 not and https://www.ncbi.nlm.nih.gov/books/NBK539859/
+
+if person is already hypertensive, they should get a message/popup, current bloodpressure indicates hypertension. Also info on how to measure bloodpressure?
+
+Else get percentage chance for how likely they are to develop hypertension in the next 5-10 years
+
