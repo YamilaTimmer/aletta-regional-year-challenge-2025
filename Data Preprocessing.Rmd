@@ -55,19 +55,45 @@ data <- read.csv("data/Lifelines Dataset.csv ", header = TRUE, na.strings=c("NA"
 ```{r}
 # Selecting columns of interest
 data_of_interest <- data %>%
-  select(zip_code_T1_M,
+  select(age_1a_q_1,
+         
+         gender_T1_M,
+         zip_code_T1_M,
+         bodylength_cm_all_m_1_T1_M,
+         
          bodyweight_kg_all_m_1_T1_M,
-         bodylength_cm_all_m_1_T1_M, 
+         bodyweight_kg_all_m_1_T2_M,
+
+         circumference_hip_all_m_1_T1_M,
+         circumference_hip_all_m_1_T2_M,
+
+         circumference_waist_all_m_1_T1_M,
+         circumference_waist_all_m_1_T2_M,
+
          addedsugar_intake_adu_c_1_T1_QF,
          alcohol_intake_adu_c_1_T1_QF,
          kcal_intake_adu_c_1_T1_QF,
          nova_foodintake_adu_c_1_T1_QU,
-         nova_foodintake_adu_c_2_T1_QU,
-         nova_foodintake_adu_c_3_T1_QU,
          nova_foodintake_adu_c_4_T1_QU,
+         
          diabetes_presence_adu_q_1_T1_Q1,
-         age_1a_q_1,
-         gender_T1_M)
+         diabetes_followup_adu_q_1_T2_Q1,
+
+         cholesterol_result_all_m_1_T1_S,
+         cholesterol_result_all_m_1_T2_S,
+
+         glucose_result_all_m_1_T1_S,
+         glucose_result_all_m_1_T2_S,
+
+         bpavg_diastolic_all_m_1_T1_BP,
+         bpavg_systolic_all_m_1_T1_BP,
+         bpavg_diastolic_all_m_1_T2_BP,
+         bpavg_systolic_all_m_1_T2_BP,
+         
+         asthma_presence_adu_q_1_T1_Q1,
+         copd_presence_adu_q_1_T1_Q1,
+         burnout_presence_adu_q_1_T1_Q1
+         )
 
 ```
 
@@ -75,21 +101,52 @@ As the names of the columns are quite long and thus a bit inconvenient to work w
 ```{r}
 data_of_interest <- data_of_interest %>%
   rename(zipcode = zip_code_T1_M,
-         body_weight = bodyweight_kg_all_m_1_T1_M,
-         body_length = bodylength_cm_all_m_1_T1_M,
+         age = age_1a_q_1,
+         gender = gender_T1_M,
+         
+         body_weight_1 = bodyweight_kg_all_m_1_T1_M,
+         body_weight_2 = bodyweight_kg_all_m_1_T2_M,
+         body_length_1 = bodylength_cm_all_m_1_T1_M,
+         
+         circumference_hip_1 = circumference_hip_all_m_1_T1_M,
+         circumference_hip_2 = circumference_hip_all_m_1_T2_M,
+
+         circumference_waist_1 = circumference_waist_all_m_1_T1_M,
+         circumference_waist_2 = circumference_waist_all_m_1_T2_M,
+
          added_sugar = addedsugar_intake_adu_c_1_T1_QF,
          alcohol_intake = alcohol_intake_adu_c_1_T1_QF,
          kcal_intake = kcal_intake_adu_c_1_T1_QF,
          nova_foodintake_1 = nova_foodintake_adu_c_1_T1_QU,
-         nova_foodintake_2 = nova_foodintake_adu_c_2_T1_QU,
-         nova_foodintake_3 = nova_foodintake_adu_c_3_T1_QU,
          nova_foodintake_4 = nova_foodintake_adu_c_4_T1_QU,
-         diabetes_presence = diabetes_presence_adu_q_1_T1_Q1,
-         age = age_1a_q_1,
-         gender = gender_T1_M)
+         
+         diabetes_presence_1 = diabetes_presence_adu_q_1_T1_Q1,
+         diabetes_presence_2 = diabetes_followup_adu_q_1_T2_Q1,
+
+         cholesterol_1 = cholesterol_result_all_m_1_T1_S,
+         cholesterol_2 = cholesterol_result_all_m_1_T2_S,
+
+         glucose_1 = glucose_result_all_m_1_T1_S,
+         glucose_2 = glucose_result_all_m_1_T2_S,
+
+         diastolic_pressure_1 = bpavg_diastolic_all_m_1_T1_BP,
+         systolic_pressure_1 = bpavg_systolic_all_m_1_T1_BP,
+         diastolic_pressure_2 = bpavg_diastolic_all_m_1_T2_BP,
+         systolic_pressure_2 = bpavg_systolic_all_m_1_T2_BP,
+         
+         asthma_presence = asthma_presence_adu_q_1_T1_Q1,
+         copd_presence = copd_presence_adu_q_1_T1_Q1,
+         burnout_presence = burnout_presence_adu_q_1_T1_Q1
+         )
+
+data_of_interest$age <- data_of_interest$age/12
+data_of_interest$body_length_1 = data_of_interest$body_length_1/100
+data_of_interest$bmi_t1 = data_of_interest$body_weight_1 / (data_of_interest$body_length_1^2)
+
+
 ```
 
-Let's check the missing values, some zipcodes seem to be missing (`r sum(is.na(data_of_interest$zipcode))` to be precise), we will remove those before moving on.
+Let's check the missing values, some zipcodes seem to be missing (`r sum(is.na(data_of_interest$zipcode))` to be precise), we will remove those before moving on. Other noteworthy commonly missing values are all measurements at T3, here ~50000 datapoints seem to be missing, which is quite a significant amount for the total of (`r nrow(data)`) rows. For T2 this seems to be ~20000 which is still significant, but less severe as T3. These missing values are caused by participants not coming back for assessments at T2 and T3, or by participants sadly passing away in the meantime. Depending on the machine learning model being trained, missing values can be dealt with by removing or imputing them. For now we will just make sure there are no missing values for creating the initial data set we will continue with, so for now it's important there are no missing zipcodes as we want to link the dataset to latitude/longitude data.
 ```{r}
 gg_miss_var(data_of_interest) + 
   ylab("N. of missing values")
@@ -122,8 +179,53 @@ There also seem to be participants included from different regions, we remove al
 ```{r}
 data_of_interest <- data_of_interest %>%
   filter(provincie %in% c("Drenthe", "Friesland", "Groningen"))
+```
 
+For diabetes presence, `1` is used to indicate diabetes and `2` is used to indicate that the patient does not have diabetes, for this scenario it would be more logical to use `0` to indicate absence of diabetes, so that is what we change below:
+```{r}
+data_of_interest$diabetes_presence_1[data_of_interest$diabetes_presence_1 == 2] <- 0
+data_of_interest$diabetes_presence_2[data_of_interest$diabetes_presence_2 == 2] <- 0
 
 ```
 
+```{r}
+data_of_interest$gender[data_of_interest$gender == "MALE"] <- 0
+data_of_interest$gender[data_of_interest$gender == "FEMALE"] <- 1
+data_of_interest$gender <- as.numeric(data_of_interest$gender)
+```
 
+
+Removing low kcal consumption
+
+
+```{r}
+# Mean intake overall
+mean_kcal <- mean(data_of_interest$kcal_intake, na.rm = TRUE)
+sprintf("mean kcal intake:, %s", round(mean_kcal))
+
+# Mean intake per gender, 0 = male, 1 = female
+data_of_interest %>%
+  group_by(gender) %>%
+  summarise(mean_kcal = mean(kcal_intake, na.rm = TRUE))
+
+```
+
+Looking at the mean intake, the caloric consumption seems a bit on the low side. As an average man needs ~2500 kcal a day and an average woman needs ~2000 kcal a day. Source: https://www.nhs.uk/live-well/healthy-weight/managing-your-weight/understanding-calories/ 
+
+`r sum(data_of_interest$kcal_intake < 500)` people seem to have a daily average consumption of less than 500 kcal, this does not seem sufficient nor sustainable in the long term, so this is where we choose to draw a limit and remove these values. The kcal intake is based on self-reporting and thus not always as accurate.
+
+
+```{r}
+df_filtered <- data_of_interest %>%
+  filter(kcal_intake >= 500)
+
+new_mean_kcal <- mean(df_filtered$kcal_intake, na.rm = TRUE)
+data.frame(new_mean_kcal_intake = new_mean_kcal)
+
+
+df_filtered %>%
+  group_by(gender) %>%
+  summarise(mean_kcal = mean(kcal_intake, na.rm = TRUE))
+```
+
+After removing the low kcal intake participants, the new mean is `r new_mean_kcal_intake`, this is `r new_mean_kcal_intake - mean_kcal` higher.
