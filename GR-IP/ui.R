@@ -2,7 +2,6 @@ library(shiny)
 
 zipcode_data <- read.csv("../data/north_zipcodes.csv")
 
-
 ui <- fluidPage(
   
   titlePanel(
@@ -12,8 +11,6 @@ ui <- fluidPage(
       h2("Groningen Risk‑Insight for Prevention (GR-IP)")
     )
   ),
-  
-  
   
   tabsetPanel(
     
@@ -25,6 +22,14 @@ ui <- fluidPage(
       
       sidebarLayout(
         sidebarPanel(
+          
+          selectInput(
+            "language",
+            "Language / Taal",
+            choices = c("English" = "en", "Nederlands" = "nl"),
+            selected = "en"
+          ),
+          
           selectInput(
             "prediction",
             "Select prediction:",
@@ -36,7 +41,7 @@ ui <- fluidPage(
           selectInput("gender", "Gender", choices = c("Female" = 0, "Male" = 1)),
           numericInput("body_height", "Body length (cm)", value = 180, min = 70, max = 250),
           numericInput("body_weight", "Body weight (kg)", value = 80, min = 30, max = 250),
-          numericInput("waist", "Waist circumference (cm)", value = 90, min = 40, max = 200),
+          numericInput("waist", "Waist circumference (cm)", value = 80, min = 40, max = 200),
           numericInput("nova1", "NOVA group 1 intake (servings/day)", value = 5, min = 0, max = 30),
           selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
           
@@ -80,16 +85,11 @@ ui <- fluidPage(
             
           ),
           
-          
-          
-          
           actionButton("predict", "Predict")
         ),
         
         mainPanel(
           h3("Result"),
-          verbatimTextOutput("message"),
-          verbatimTextOutput("risk"),
           uiOutput("warning_box"),
           
           conditionalPanel(
@@ -123,14 +123,13 @@ ui <- fluidPage(
       )
     ),
     
-    
     # ============================================================
-    # TAB 3 — BACKGROUND INFO
+    # TAB 2 — How to use
     # ============================================================
     tabPanel(
       title = "How to use",
       
-      # Soft background box
+      # Background box
       div(
         style = "
       background-color: #f7f9fc;
@@ -173,8 +172,6 @@ ui <- fluidPage(
                   Nutritional info on added sugar can be found on the packaging."),
           tags$li(tags$b("Kcal intake:"), " Average number of calories consumed daily."),
           
-          
-          
           # Waist circumference item + image 
           tags$li( tags$b("Waist/hip circumference:"), 
                    " Measure using a measuring tape as illustrated below.", 
@@ -191,119 +188,186 @@ ui <- fluidPage(
     # TAB 3 — BACKGROUND INFO
     # ============================================================
     tabPanel(
-      title = "Background Information",
+      title = uiOutput("tab_background_title"),
       
-      # Soft background box
-      div(
-        style = "
-      background-color: #f7f9fc;
-      padding: 30px;
-      border-radius: 12px;
-      max-width: 900px;
-      margin: auto;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    ",
+      # ============================
+      # ENGLISH VERSION
+      # ============================
+      conditionalPanel(
+        condition = "input.language == 'en'",
         
-        h2("About This Prediction Tool", 
-           style = "font-weight: 700; margin-bottom: 20px;"), 
-        tags$blockquote( 
-          style = "font-style: italic; color: #555; margin-top: 10px;", 
-          "GR-IP: A risk predicting interactive app that helps people get a GRIP on their food environment." ),
-        # Section 1
-        h3("What this tool does", style = "margin-top: 25px;"),
-        p("This app provides lifestyle based risk assessments for disease (hypertension & diabetes) 
-        and other factors such as weight gain, and cholesterol/glucose levels. The prediction is based on a timespan of 5-10 years.
-        Factors that are taken into account when doing predictions are easily measured at home and include items such as 
-        body length/weight and caloric intake."),
-        
-        
-        # Section 2
-        h3("Important notes", style = "margin-top: 25px;"),
         div(
           style = "
-        background-color: #fff3cd;
-        border-left: 6px solid #ffca2c;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
+        background-color: #f7f9fc;
+        padding: 30px;
+        border-radius: 12px;
+        max-width: 900px;
+        margin: auto;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       ",
-          p("This tool is not a medical device. Predictions are based on statistical patterns and 
-         should not replace professional medical advice. User data is fully private and is not saved.")
-        ),
-        
-        # Section 3
-        h3("Data sources", style = "margin-top: 25px;"),
-        p("The prediction models used by this app are trained on Lifelines data, 
-        this is one of the largest population studies in the Netherlands, aimed specifically at the northern provinces of 
-        the country, including Drenthe, Groningen and Friesland. For more information, visit the ", tags$a(href = "https://www.lifelines.nl", "Lifelines website", target = "_blank"), "."),
-        
-        
-        # Section 4
-        h3("Motivation", style = "margin-top: 25px;"),
-        p("GR-IP was developed by three life sciences students from Hanze 
-          University of Applied Sciences, in assignment for", 
-          tags$a(href = "https://www.rug.nl/aletta/education/aletta-s-regional-year-challenge",
-                 "'Aletta’s Regional Year Challenge 2025'", target = "_blank"), ". 
-          The theme for this years challenge was to work on a project that can 
-          help improve the food environment of northern Netherlands, we chose to 
-          do so by making an app that gives users insight into health risks based 
-          on lifestyle choices. All used models and data processing steps can be 
-          found on our", tags$a(href = "https://github.com/YamilaTimmer/aletta-regional-year-challenge-2025", 
-                                "GitHub repository",target = "_blank"), "."),
-        
-        h3("Acknowledgements", style = "margin-top: 25px;"),
-        
-        p("This project was developed in cooperation with the following partner organizations:"),
-        
-        tags$ul(
-          tags$li(
-            tags$a(
-              href = "https://www.lifelines.nl",
-              target = "_blank",
-              tags$img(src = "lifelines-logo.png", height = "50px", style = "margin-right:10px;")
-            )
+          
+          h2("About This Prediction Tool", style = "font-weight: 700; margin-bottom: 20px;"),
+          
+          tags$blockquote(
+            style = "font-style: italic; color: #555; margin-top: 10px;",
+            "GR-IP: A risk predicting interactive app that helps people get a GRIP on their food environment."
           ),
-          tags$li(
-            tags$a(
-              href = "https://www.rug.nl",
-              target = "_blank",
-              tags$img(src = "rug-logo.png", height = "60px", style = "margin-right:10px;")
-            )
+          
+          h3("What this tool does", style = "margin-top: 25px;"),
+          p("This app provides lifestyle based risk assessments for disease (hypertension & diabetes) 
+         and other factors such as weight gain, and cholesterol/glucose levels. The prediction is based on a timespan of 5-10 years.
+         Factors that are taken into account when doing predictions are easily measured at home and include items such as 
+         body length/weight and caloric intake."),
+          
+          h3("Important notes", style = "margin-top: 25px;"),
+          div(
+            style = "
+          background-color: #fff3cd;
+          border-left: 6px solid #ffca2c;
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        ",
+            p("This tool is not a medical device. Predictions are based on statistical patterns and 
+           should not replace professional medical advice. User data is fully private and is not saved.")
           ),
-          tags$li(
-            tags$a(
-              href = "https://www.hanze.nl",
-              target = "_blank",
-              tags$img(src = "hanze-logo.png", height = "80px", style = "margin-right:10px;")
-            )
+          
+          h3("Data sources", style = "margin-top: 25px;"),
+          p("The prediction models used by this app are trained on Lifelines data, 
+         one of the largest population studies in the Netherlands, aimed specifically at the northern provinces of 
+         the country, including Drenthe, Groningen and Friesland. For more information, visit the ",
+            tags$a(href = "https://www.lifelines.nl", "Lifelines website", target = "_blank"), "."),
+          
+          h3("Motivation", style = "margin-top: 25px;"),
+          p("GR-IP was developed by three life sciences students from Hanze 
+         University of Applied Sciences, in assignment for ",
+            tags$a(href = "https://www.rug.nl/aletta/education/aletta-s-regional-year-challenge",
+                   "'Aletta’s Regional Year Challenge 2025'", target = "_blank"), ". 
+         The theme for this years challenge was to work on a project that can 
+         help improve the food environment of northern Netherlands, we chose to 
+         do so by making an app that gives users insight into health risks based 
+         on lifestyle choices. All used models and data processing steps can be 
+         found on our ",
+            tags$a(href = "https://github.com/YamilaTimmer/aletta-regional-year-challenge-2025", 
+                   "GitHub repository", target = "_blank"), "."),
+          
+          h3("Acknowledgements", style = "margin-top: 25px;"),
+          p("This project was developed in cooperation with the following partner organizations:"),
+          
+          tags$ul(
+            tags$li(tags$a(href = "https://www.lifelines.nl", target = "_blank",
+                           tags$img(src = "lifelines-logo.png", height = "50px", style = "margin-right:10px;"))),
+            tags$li(tags$a(href = "https://www.rug.nl", target = "_blank",
+                           tags$img(src = "rug-logo.png", height = "60px", style = "margin-right:10px;"))),
+            tags$li(tags$a(href = "https://www.hanze.nl", target = "_blank",
+                           tags$img(src = "hanze-logo.png", height = "80px", style = "margin-right:10px;"))),
+            tags$li(tags$a(href = "https://www.rug.nl/aletta", target = "_blank",
+                           tags$img(src = "aletta-logo.png", height = "100px", style = "margin-right:10px;"))),
+            tags$li(tags$a(href = "https://www.umcg.nl", target = "_blank",
+                           tags$img(src = "umcg-logo.png", height = "50px", style = "margin-right:10px;")))
           ),
-          tags$li(
-            tags$a(
-              href = "https://www.rug.nl/aletta",
-              target = "_blank",
-              tags$img(src = "aletta-logo.png", height = "100px", style = "margin-right:10px;")
-            )
-          ),
-          tags$li(
-            tags$a(
-              href = "https://www.umcg.nl",
-              target = "_blank",
-              tags$img(src = "umcg-logo.png", height = "50px", style = "margin-right:10px;")
+          
+          h3("Sources", style = "margin-top: 25px;"),
+          p("Categories for BMI, cholesterol and glucose are based on the sources below:"),
+          tags$ul(
+            tags$li(
+              "InformedHealth.org. (2025, September 24). Overview: High cholesterol. Institute for Quality and Efficiency in Health Care (IQWiG). ",
+              tags$a(
+                href = "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
+                "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
+                target = "_blank"
+              )
             )
           )
-        ),
+        )
+      ),
+      
+      # ============================
+      # DUTCH VERSION
+      # ============================
+      conditionalPanel(
+        condition = "input.language == 'nl'",
         
-        h3("Sources", style = "margin-top: 25px;"),
-        
-        p("Categories for BMI, cholesterol and glucose are based on the sources below:"),
-        
-        tags$ul(
-          tags$li(
-            "InformedHealth.org. (2025, September 24). Overview: High cholesterol. Institute for Quality and Efficiency in Health Care (IQWiG). ",
-            tags$a(
-              href = "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
-              "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
-              target = "_blank"
+        div(
+          style = "
+        background-color: #f7f9fc;
+        padding: 30px;
+        border-radius: 12px;
+        max-width: 900px;
+        margin: auto;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      ",
+          
+          h2("Achtergrondinformatie", style = "font-weight: 700; margin-bottom: 20px;"),
+          
+          tags$blockquote(
+            style = "font-style: italic; color: #555; margin-top: 10px;",
+            "GR-IP: Een interactieve risicovoorspellende app die mensen helpt grip te krijgen op hun voedselomgeving."
+          ),
+          
+          h3("Wat deze tool doet", style = "margin-top: 25px;"),
+          p("Deze app geeft leefstijl-gebaseerde risicobeoordelingen voor ziekten (hypertensie & diabetes) 
+         en andere factoren zoals gewichtstoename en cholesterol-/glucosewaarden. De voorspellingen zijn gebaseerd op een periode van 5–10 jaar.
+         De gebruikte factoren zijn eenvoudig thuis te meten, zoals lengte/gewicht en calorie-inname."),
+          
+          h3("Belangrijke opmerkingen", style = "margin-top: 25px;"),
+          div(
+            style = "
+          background-color: #fff3cd;
+          border-left: 6px solid #ffca2c;
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        ",
+            p("Deze tool is geen medisch hulpmiddel. Voorspellingen zijn gebaseerd op statistische patronen 
+           en vervangen geen professioneel medisch advies. Gebruikersdata is volledig privé en wordt niet opgeslagen.")
+          ),
+          
+          h3("Databronnen", style = "margin-top: 25px;"),
+          p("De voorspellingsmodellen in deze app zijn getraind op Lifelines-data, 
+         een van de grootste bevolkingsstudies in Nederland, gericht op de noordelijke provincies 
+         waaronder Drenthe, Groningen en Friesland. Voor meer informatie, bezoek de ",
+            tags$a(href = "https://www.lifelines.nl", "Lifelines-website", target = "_blank"), "."),
+          
+          h3("Motivatie", style = "margin-top: 25px;"),
+          p("GR-IP is ontwikkeld door drie Life Sciences-studenten van de 
+         Hanzehogeschool Groningen, in opdracht voor ",
+            tags$a(href = "https://www.rug.nl/aletta/education/aletta-s-regional-year-challenge",
+                   "'Aletta’s Regional Year Challenge 2025'", target = "_blank"), ". 
+         Het thema van deze challenge was om te werken aan een project dat 
+         de voedselomgeving van Noord-Nederland kan verbeteren. Wij kozen ervoor 
+         om een app te maken die gebruikers inzicht geeft in gezondheidsrisico’s 
+         op basis van leefstijlkeuzes. Alle gebruikte modellen en 
+         dataverwerkingsstappen zijn te vinden op onze ",
+            tags$a(href = "https://github.com/YamilaTimmer/aletta-regional-year-challenge-2025",
+                   "GitHub-repository", target = "_blank"), "."),
+          
+          h3("Dankwoord", style = "margin-top: 25px;"),
+          p("Dit project is ontwikkeld in samenwerking met de volgende partnerorganisaties:"),
+          
+          tags$ul(
+            tags$li(tags$a(href = "https://www.lifelines.nl", target = "_blank",
+                           tags$img(src = "lifelines-logo.png", height = "50px", style = "margin-right:10px;"))),
+            tags$li(tags$a(href = "https://www.rug.nl", target = "_blank",
+                           tags$img(src = "rug-logo.png", height = "60px", style = "margin-right:10px;"))),
+            tags$li(tags$a(href = "https://www.hanze.nl", target = "_blank",
+                           tags$img(src = "hanze-logo.png", height = "80px", style = "margin-right:10px;"))),
+            tags$li(tags$a(href = "https://www.rug.nl/aletta", target = "_blank",
+                           tags$img(src = "aletta-logo.png", height = "100px", style = "margin-right:10px;"))),
+            tags$li(tags$a(href = "https://www.umcg.nl", target = "_blank",
+                           tags$img(src = "umcg-logo.png", height = "50px", style = "margin-right:10px;")))
+          ),
+          
+          h3("Bronnen", style = "margin-top: 25px;"),
+          p("Categorieën voor BMI, cholesterol en glucose zijn gebaseerd op onderstaande bronnen:"),
+          tags$ul(
+            tags$li(
+              "InformedHealth.org. (2025, September 24). Overview: High cholesterol. Institute for Quality and Efficiency in Health Care (IQWiG). ",
+              tags$a(
+                href = "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
+                "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
+                target = "_blank"
+              )
             )
           )
         )
