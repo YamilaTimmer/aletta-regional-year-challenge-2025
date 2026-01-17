@@ -25,11 +25,12 @@ The data of interest has already been constructed after running the data pre-pro
 library(tidyverse)
 library(tidyverse)
 library(pROC)
+library(naniar)
 ```
 
 # Diabetes prediction
 
-The dataset contains 3 variables needed to determine diabetes occurence, which are the 3 seperate diabetes 'checks'. Lifelines has 3 different timepoints, each around 5-10 years apart. For the first timepoint the participant is asked whether they have diabetes. Here 2 equals 'no' and 1 equals 'yes'. Then at T2, several years later, participants are asked if they have developed diabetes in the time between T1 and T2. Again here 2 equals 'no' and 1 equals 'yes'. Lastly, the participants are asked at T3 if they have developed diabetes between T2 and T3. To be able to predict diabetes occurrence, we need a decent amount of data on participants that developed diabetes during Lifelines. We do not look at T1, as the survey made no distinction between diabetes type I and type II. As only type II is heavily correlated with food environment, we are only interested in this type. Type II often develops later in life. For this model we focus on patients that develop diabetes between T1 and T2. 
+The dataset contains 3 variables needed to determine diabetes occurrence, which are the 3 separate diabetes 'checks'. Lifelines has 3 different timepoints, each around 5-10 years apart. For the first timepoint the participant is asked whether they have diabetes. Here 2 equals 'no' and 1 equals 'yes'. Then at T2, several years later, participants are asked if they have developed diabetes in the time between T1 and T2. Again here 2 equals 'no' and 1 equals 'yes'. Lastly, the participants are asked at T3 if they have developed diabetes between T2 and T3. To be able to predict diabetes occurrence, we need a decent amount of data on participants that developed diabetes during Lifelines. We do not look at T1, as the survey made no distinction between diabetes type I and type II. As only type II is heavily correlated with food environment, we are only interested in this type. Type II often develops later in life. For this model we focus on patients that develop diabetes between T1 and T2. 
 
 ```{r}
 gg_miss_var(data_of_interest) + 
@@ -68,23 +69,19 @@ diabetes_data <- data_of_interest %>%
 # =================================================
 
 # Create model and select predictor variables
-model <- glm(
+diabetes_model <- glm(
   diabetes_new_onset ~ 
     age +
     bmi_t1 +
     circumference_waist_1 + 
     gender + 
-    circumference_hip_1 + 
-    latitude + 
-    longitude +
-    alcohol_intake + 
-    nova_foodintake_1 +   
-    nova_foodintake_4,
+    longitude + 
+    nova_foodintake_1,
   data = diabetes_data,
   family = binomial
 )
 
-summary(model)
+summary(diabetes_model)
 
 ```
 
@@ -94,7 +91,7 @@ summary(model)
 # =================================================
 
 # Predicted probabilities for the dataset
-pred_probs <- predict(model, newdata = diabetes_data, type = "response")
+pred_probs <- predict(diabetes_model, newdata = diabetes_data, type = "response")
 
 # ROC object
 roc_obj <- roc(
@@ -150,36 +147,24 @@ low_risk_person <- data.frame(
   age = 22,
   gender = 0,                     # female
   circumference_waist_1 = 65,
-  circumference_hip_1 = 90,
-  added_sugar = 5,
-  alcohol_intake = 0,
-  latitude = 52,
   longitude = 6,
   nova_foodintake_1 = 12,         # high unprocessed food intake
-  nova_foodintake_4 = 1,          # very low ultra-processed intake
   bmi_t1 = 20                     # healthy BMI
 )
-
 
 # High risk (e.g. high body mass, high age, etc.)
 high_risk_person <- data.frame(
   age = 78,
-  gender = 1,                     # male (higher risk in your model)
+  gender = 1,                     # male
   circumference_waist_1 = 135,    # extreme abdominal obesity
-  circumference_hip_1 = 105,
-  added_sugar = 40,
-  alcohol_intake = 20,
-  latitude = 52,
   longitude = 8,
   nova_foodintake_1 = 0,          # almost no unprocessed food
-  nova_foodintake_4 = 12,         # very high ultra-processed intake
   bmi_t1 = 42                     # severe obesity
 )
 
 
-
-prob_low_risk <- predict(model, newdata = low_risk_person, type = "response")
-prob_high_risk <- predict(model, newdata = high_risk_person, type = "response")
+prob_low_risk <- predict(diabetes_model, newdata = low_risk_person, type = "response")
+prob_high_risk <- predict(diabetes_model, newdata = high_risk_person, type = "response")
 
 print(paste("Predicted risk (low risk person):", round(prob_low_risk * 100, 2), "%"))
 print(paste("Predicted risk (high risk person):", round(prob_high_risk * 100, 2), "%"))
@@ -231,7 +216,7 @@ hypertension_data <- data_of_interest %>%
 # 2. LOGISTIC REGRESSION MODEL
 # =================================================
 
-model <- glm(
+hypertension_model <- glm(
   hypertension_new_onset ~ 
     age + 
     gender + 
@@ -244,7 +229,7 @@ model <- glm(
   family = binomial
 )
 
-summary(model)
+summary(hypertension_model)
 
 ```
 
@@ -254,7 +239,7 @@ summary(model)
 # =================================================
 
 # Predicted probabilities for the dataset
-pred_probs <- predict(model, newdata = hypertension_data, type = "response")
+pred_probs <- predict(hypertension_model, newdata = hypertension_data, type = "response")
 
 # ROC object
 roc_obj <- roc(
@@ -278,32 +263,59 @@ plot(
 
 ```{r}
 # =================================================
-# 4. PREDICT NEW PERSON
+# 4. CONFUSION MATRIX
 # =================================================
-new_person <- data.frame(
-  age = 20,
-  gender = 0,                     # female
-  circumference_waist_1 = 65,
-  circumference_hip_1 = 85,
-  added_sugar = 5,
-  alcohol_intake = 0,
-  latitude = 53,                  # higher latitude → lower risk in your model
-  longitude = 6,
-  nova_foodintake_1 = 8,
-  nova_foodintake_4 = 2,
-  bmi_t1 = 30,
-  diastolic_pressure_1 = 80,
-  systolic_pressure_1 = 120
+
+threshold <- 0.5
+
+# Convert probabilities to predicted classes
+pred_class <- ifelse(pred_probs >= threshold, 1, 0)
+
+# Create confusion matrix
+conf_matrix <- table(
+  Actual = hypertension_data$hypertension_new_onset,
+  Predicted = pred_class
 )
 
-
-prob <- predict(model, newdata = new_person, type = "response")
-print(paste("Predicted risk:", round(prob * 100, 2), "%"))
-
+conf_matrix
 
 ```
 
+```{r}
+# =================================================
+# 5. PREDICT NEW PERSON
+# =================================================
+low_risk_person <- data.frame(
+  age = 22,
+  gender = 0,                     # female
+  circumference_waist_1 = 65,
+  alcohol_intake = 0,
+  latitude = 53,
+  longitude = 6,
+  nova_foodintake_1 = 10,         # decent unprocessed intake
+  nova_foodintake_4 = 1,          # low ultra-processed intake
+  bmi_t1 = 20
+)
 
+high_risk_person <- data.frame(
+  age = 75,
+  gender = 1,                     # male
+  circumference_waist_1 = 125,
+  alcohol_intake = 15,
+  latitude = 52,
+  longitude = 6,
+  nova_foodintake_1 = 1,          # very low unprocessed intake
+  nova_foodintake_4 = 10,         # high ultra-processed intake
+  bmi_t1 = 38       # below 130 → not hypertensive yet
+)
+
+
+prob_low_risk <- predict(hypertension_model, newdata = low_risk_person, type = "response")
+prob_high_risk <- predict(hypertension_model, newdata = high_risk_person, type = "response")
+
+print(paste("Predicted risk (low risk person):", round(prob_low_risk * 100, 2), "%"))
+print(paste("Predicted risk (high risk person):", round(prob_high_risk * 100, 2), "%"))
+```
 
 
 
@@ -324,3 +336,9 @@ if person is already hypertensive, they should get a message/popup, current bloo
 
 Else get percentage chance for how likely they are to develop hypertension in the next 5-10 years
 
+
+```{r}
+saveRDS(diabetes_model, "diabetes_model.rds")
+saveRDS(hypertension_model, "hypertension_model.rds")
+
+```

@@ -229,3 +229,24 @@ df_filtered %>%
 ```
 
 After removing the low kcal intake participants, the new mean is `r new_mean_kcal_intake`, this is `r new_mean_kcal_intake - mean_kcal` higher.
+
+```{r}
+north_zipcodes <- zipcode_data %>%
+  filter(provincie %in% c("Groningen", "Friesland", "Drenthe"))
+
+extra_zipcodes <- data.frame(
+  latitude   = c(52.77472, 53.22564, 52.74963),
+  longitude  = c(6.49981, 6.65860, 6.58211),
+  zipcode    = c("7928", "9613", "7910"),
+  woonplaats = c("Stuifzand", "Meerstad", "Nieuweroord"),
+  gemeente   = c("Midden-Drenthe", "Groningen", "Midden-Drenthe"),
+  provincie  = c("Drenthe", "Groningen", "Drenthe"),
+  stringsAsFactors = FALSE
+)
+
+north_zipcodes <- bind_rows(north_zipcodes, extra_zipcodes)
+
+
+write.csv(north_zipcodes, "data/north_zipcodes.csv", row.names = FALSE)
+
+```
