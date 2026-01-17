@@ -365,10 +365,9 @@ server <- function(input, output, session) {
         
         base <- make_risk_plot(
           risk_value = diabetes_risk,
-          xlab = tr("msg_diabetes"),                 # x‑as label
-          title = tr("title_diabetes_plot"),         # plot titel
+          xlab = tr("msg_diabetes"),                 
+          title = tr("title_diabetes_plot"),         
           caption = "Risk thresholds: <20% low, 20–40% elevated, >40% high"
-          # (Als je wilt kan ik deze thresholds ook tweetalig maken)
         )
         
         # Dynamic label placement
@@ -399,7 +398,7 @@ server <- function(input, output, session) {
     }
     
     # ============================================================
-    # Prediction 2 — HYPERTENSION PREDICTION (TWEETALIG)
+    # Prediction 2 — HYPERTENSION PREDICTION
     # ============================================================
     else if (input$prediction == "Hypertension") {
       
@@ -417,7 +416,7 @@ server <- function(input, output, session) {
       
       
       # ============================
-      # HYPERTENSION WARNING SYSTEM (TWEETALIG)
+      # HYPERTENSION WARNING SYSTEM 
       # ============================
       
       output$warning_box <- renderUI({
@@ -469,7 +468,7 @@ server <- function(input, output, session) {
       
       
       # ============================
-      # HYPERTENSION PLOT (TWEETALIG)
+      # HYPERTENSION PLOT
       # ============================
       
       output$hypertension_plot <- renderPlot({
@@ -479,7 +478,6 @@ server <- function(input, output, session) {
           xlab = tr("msg_hypertension"),
           title = tr("title_hypertension_plot"),
           caption = "Risk thresholds: <20% low, 20–40% elevated, >40% high"
-          # (Wil je deze caption ook tweetalig? Dan maak ik hem ook in de dict.)
         )
         
         # Dynamic label placement
@@ -512,7 +510,7 @@ server <- function(input, output, session) {
     
     
     # ============================================================
-    # Prediction 3 — WEIGHT GAIN (TWEETALIG)
+    # Prediction 3 — WEIGHT GAIN
     # ============================================================
     else if (input$prediction == "Weight Gain") {
       
@@ -539,7 +537,7 @@ server <- function(input, output, session) {
       
       
       # ============================
-      # BMI WARNING SYSTEM (TWEETALIG)
+      # BMI WARNING SYSTEM
       # ============================
       
       output$warning_box <- renderUI({
