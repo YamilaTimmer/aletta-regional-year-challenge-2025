@@ -4,7 +4,7 @@ zipcode_data <- read.csv("../data/north_zipcodes.csv")
 
 
 ui <- fluidPage(
-
+  
   titlePanel(
     div(
       style = "display: flex; align-items: center;",
@@ -40,49 +40,65 @@ ui <- fluidPage(
           numericInput("nova1", "NOVA group 1 intake (servings/day)", value = 5, min = 0, max = 30),
           selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
           
-
+          
           conditionalPanel(
             condition = "input.prediction == 'Hypertension'",
             
             numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
-
+            
           ),
           
           conditionalPanel(
             condition = "input.prediction == 'Weight Gain'",
-         
-          
+            
             numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
             numericInput("nova4", "NOVA group 4 intake (servings/day)", value = 5, min = 0, max = 30),
             numericInput("kcal", "Kcal intake (avg/daily)", value = 2000, min = 0, max = 10000),
             numericInput("sugar", "Added sugar (avg/daily)", value = 20, min = 0, max = 1000),
             numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
-
-            
-          ),
-          
-          conditionalPanel(
-            condition = "input.prediction == 'Glucose'",
-            
-      
           ),
           
           conditionalPanel(
             condition = "input.prediction == 'Cholesterol'",
             
-         
+            numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
+            numericInput("nova4", "NOVA group 4 intake (servings/day)", value = 5, min = 0, max = 30),
+            numericInput("kcal", "Kcal intake (avg/daily)", value = 2000, min = 0, max = 10000),
+            numericInput("sugar", "Added sugar (avg/daily)", value = 20, min = 0, max = 1000),
+            numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
           ),
           
           
-          actionButton("predict", "Predict risk")
+          conditionalPanel(
+            condition = "input.prediction == 'Glucose'",
+            
+            numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
+            numericInput("nova4", "NOVA group 4 intake (servings/day)", value = 5, min = 0, max = 30),
+            numericInput("kcal", "Kcal intake (avg/daily)", value = 2000, min = 0, max = 10000),
+            numericInput("sugar", "Added sugar (avg/daily)", value = 20, min = 0, max = 1000),
+            numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
+            
+          ),
+          
+          
+          
+          
+          actionButton("predict", "Predict")
         ),
         
         mainPanel(
           h3("Result"),
           verbatimTextOutput("message"),
           verbatimTextOutput("risk"),
-          plotOutput("bmi_plot", height = "180px"),
-          plotOutput("waist_plot", height = "200px"),
+          
+          conditionalPanel( condition = "input.prediction == 'Weight Gain'", 
+                            plotOutput("bmi_plot", height = "200px"), 
+                            plotOutput("waist_plot", height = "200px") ),
+          
+          conditionalPanel( condition = "input.prediction == 'Cholesterol'", 
+                            plotOutput("cholesterol_plot", height = "200px")
+          ), 
+          
           
           tags$hr(),
           h4("Notes"),
@@ -113,13 +129,45 @@ ui <- fluidPage(
         h2("How to use the Prediction Tool", style = "font-weight: 700; margin-bottom: 20px;"),
         
         # Section 1
-        h3("What this tool does", style = "margin-top: 25px;"),
-        p("This app provides lifestyle based risk assessments for disease (hypertension & diabetes) 
-        and other factors such as weight gain, and cholesterol/glucose levels. The prediction is based on a timespan of 5-10 years.
-        Factors that are taken into account when doing predictions are easily measured at home and include items such as 
-        body length/weight and caloric intake."),
-
+        h3("Predictor variables", style = "margin-top: 25px;"),
+        p("Below a description can be found on all of the variables used to 
+          predict risk/health outcomes. The different models each use different 
+          variables."),
         
+        tags$ul(
+          tags$li(tags$b("Age:"), " Age in years."),
+          tags$li(tags$b("Gender:"), " Biological sex (male/female)."),
+          tags$li(tags$b("Body length and weight:"), "Current length in cm and weight in kg."),
+          tags$li(tags$b("ZIP code:"), "The first four digits of a Dutch zipcode 
+          in either Drenthe, Groningen or Friesland. E.g. for zipcode 9613 AL, '9613' has to be used.")
+        ),
+        
+        h4("Nutritional Variables", style = "margin-top: 20px; font-weight: bold;"),
+        
+        tags$ul(
+          tags$li(tags$b("NOVA intake 1:"), " Average daily grams consumed of unprocessed foods. 
+                  Such as fruits, vegetables, nuts, eggs and whole wheat products."),
+          tags$li(tags$b("NOVA intake 4:"), " Average daily grams consumed of highly-processed 
+                  foods. Such as ready meals, crisps, fastfood and chocolate."),
+          tags$li(tags$b("Alcohol intake:"), " Average number of servings per day. One serving 
+                  is equal to one glass of beer (250 mL), one glass of wine (100 mL) or 35 mL of strong liquor."),
+          tags$li(tags$b("Added sugar:"), " Average added sugar intake daily in grams. Added 
+                  sugars are non-naturally occuring sugars that were added during processing 
+                  of the food item and are present in most snacks/sweets, soda and ice cream. 
+                  Nutritional info on added sugar can be found on the packaging."),
+          tags$li(tags$b("Kcal intake:"), " Average number of calories consumed daily."),
+          
+          
+          
+          # Waist circumference item + image 
+          tags$li( tags$b("Waist/hip circumference:"), 
+                   " Measure using a measuring tape as illustrated below.", 
+                   tags$br(), tags$img(src = "measure.png", 
+                                       height = "250px", 
+                                       style = "margin-top:10px; border-radius:8px;") 
+          ),
+          
+        )
       )
     ),
     
@@ -227,14 +275,23 @@ ui <- fluidPage(
               tags$img(src = "umcg-logo.png", height = "50px", style = "margin-right:10px;")
             )
           )
+        ),
         
-
+        h3("Sources", style = "margin-top: 25px;"),
+        
+        p("Categories for BMI, cholesterol and glucose are based on the sources below:"),
+        
+        tags$ul(
+          tags$li(
+            "InformedHealth.org. (2025, September 24). Overview: High cholesterol. Institute for Quality and Efficiency in Health Care (IQWiG). ",
+            tags$a(
+              href = "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
+              "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
+              target = "_blank"
+            )
+          )
         )
-        
-        
       )
     )
-    
-    
   )
 )
