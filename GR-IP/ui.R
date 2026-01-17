@@ -90,6 +90,18 @@ ui <- fluidPage(
           h3("Result"),
           verbatimTextOutput("message"),
           verbatimTextOutput("risk"),
+          uiOutput("warning_box"),
+          
+          conditionalPanel(
+            condition = "input.prediction == 'Diabetes'",
+            plotOutput("diabetes_plot", height = "200px")
+          ),
+          
+          conditionalPanel(
+            condition = "input.prediction == 'Hypertension'",
+            plotOutput("hypertension_plot", height = "200px")
+          ),
+          
           
           conditionalPanel( condition = "input.prediction == 'Weight Gain'", 
                             plotOutput("bmi_plot", height = "200px"), 
@@ -97,6 +109,10 @@ ui <- fluidPage(
           
           conditionalPanel( condition = "input.prediction == 'Cholesterol'", 
                             plotOutput("cholesterol_plot", height = "200px")
+          ), 
+          
+          conditionalPanel( condition = "input.prediction == 'Glucose'", 
+                            plotOutput("glucose_plot", height = "200px")
           ), 
           
           
