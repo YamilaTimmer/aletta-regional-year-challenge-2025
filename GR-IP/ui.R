@@ -31,51 +31,33 @@ ui <- fluidPage(
             choices = c("Diabetes", "Hypertension", "Weight Gain", "Cholesterol", "Glucose")
           ),
           
-          conditionalPanel(
-            condition = "input.prediction == 'Diabetes'",
-            
-            
-            numericInput("age", "Age (years)", value = 40, min = 18, max = 100),
-            selectInput("gender", "Gender", choices = c("Female" = 0, "Male" = 1)),
-            numericInput("body_height", "Body length (cm)", value = 180, min = 70, max = 250),
-            numericInput("body_weight", "Body weight (kg)", value = 80, min = 30, max = 250),
-            numericInput("waist", "Waist circumference (cm)", value = 90, min = 40, max = 200),
-            numericInput("nova1", "NOVA group 1 intake (servings/day)", value = 5, min = 0, max = 30),
-            selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
-            
-          ),
-
+          # Shared inputs
+          numericInput("age", "Age (years)", value = 40, min = 18, max = 100),
+          selectInput("gender", "Gender", choices = c("Female" = 0, "Male" = 1)),
+          numericInput("body_height", "Body length (cm)", value = 180, min = 70, max = 250),
+          numericInput("body_weight", "Body weight (kg)", value = 80, min = 30, max = 250),
+          numericInput("waist", "Waist circumference (cm)", value = 90, min = 40, max = 200),
+          numericInput("nova1", "NOVA group 1 intake (servings/day)", value = 5, min = 0, max = 30),
+          selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
           
+
           conditionalPanel(
             condition = "input.prediction == 'Hypertension'",
             
-            numericInput("age", "Age (years)", value = 40, min = 18, max = 100),
-            selectInput("gender", "Gender", choices = c("Female" = 0, "Male" = 1)),
-            numericInput("body_height", "Body length (cm)", value = 180, min = 70, max = 250),
-            numericInput("body_weight", "Body weight (kg)", value = 80, min = 30, max = 250),
-            numericInput("waist", "Waist circumference (cm)", value = 90, min = 40, max = 200),
-            numericInput("nova1", "NOVA group 1 intake (servings/day)", value = 5, min = 0, max = 30),
             numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
-            selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
-          
+
           ),
           
           conditionalPanel(
             condition = "input.prediction == 'Weight Gain'",
          
-            numericInput("age", "Age (years)", value = 40, min = 18, max = 100),
-            selectInput("gender", "Gender", choices = c("Female" = 0, "Male" = 1)),
-            numericInput("body_height", "Body length (cm)", value = 180, min = 70, max = 250),
-            numericInput("body_weight", "Body weight (kg)", value = 80, min = 30, max = 250),
-            numericInput("waist", "Waist circumference (cm)", value = 70, min = 40, max = 200),
+          
             numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
-            numericInput("nova1", "NOVA group 1 intake (servings/day)", value = 5, min = 0, max = 30),
             numericInput("nova4", "NOVA group 4 intake (servings/day)", value = 5, min = 0, max = 30),
             numericInput("kcal", "Kcal intake (avg/daily)", value = 2000, min = 0, max = 10000),
             numericInput("sugar", "Added sugar (avg/daily)", value = 20, min = 0, max = 1000),
             numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
-            selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
-            
+
             
           ),
           
@@ -204,6 +186,50 @@ ui <- fluidPage(
           on lifestyle choices. All used models and data processing steps can be 
           found on our", tags$a(href = "https://github.com/YamilaTimmer/aletta-regional-year-challenge-2025", 
                                 "GitHub repository",target = "_blank"), "."),
+        
+        h3("Acknowledgements", style = "margin-top: 25px;"),
+        
+        p("This project was developed in cooperation with the following partner organizations:"),
+        
+        tags$ul(
+          tags$li(
+            tags$a(
+              href = "https://www.lifelines.nl",
+              target = "_blank",
+              tags$img(src = "lifelines-logo.png", height = "50px", style = "margin-right:10px;")
+            )
+          ),
+          tags$li(
+            tags$a(
+              href = "https://www.rug.nl",
+              target = "_blank",
+              tags$img(src = "rug-logo.png", height = "60px", style = "margin-right:10px;")
+            )
+          ),
+          tags$li(
+            tags$a(
+              href = "https://www.hanze.nl",
+              target = "_blank",
+              tags$img(src = "hanze-logo.png", height = "80px", style = "margin-right:10px;")
+            )
+          ),
+          tags$li(
+            tags$a(
+              href = "https://www.rug.nl/aletta",
+              target = "_blank",
+              tags$img(src = "aletta-logo.png", height = "100px", style = "margin-right:10px;")
+            )
+          ),
+          tags$li(
+            tags$a(
+              href = "https://www.umcg.nl",
+              target = "_blank",
+              tags$img(src = "umcg-logo.png", height = "50px", style = "margin-right:10px;")
+            )
+          )
+        
+
+        )
         
         
       )
