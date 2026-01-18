@@ -100,7 +100,7 @@ server <- function(input, output, session) {
     # ENGLISH
     # ============================
     en = list(
-
+      
       # --- Generic phrases ---
       your_predicted_diabetes_risk_is     = "Your predicted diabetes risk for the next 5-10 years is",
       your_predicted_hypertension_risk_is = "Your predicted hypertension risk for the next 5-10 years is",
@@ -144,6 +144,12 @@ server <- function(input, output, session) {
       glucose_normal     = "Normal",
       glucose_prediabetes = "Prediabetes",
       glucose_diabetes    = "Diabetes",
+      
+      # --- Glucose warn ---
+      glucose_warn_low        = "Low glucose",
+      glucose_warn_normal     = "Healthy result",
+      glucose_warn_prediabetes = "Elevated glucose",
+      glucose_warn_diabetes    = "High glucose",
       
       # --- BMI categories ---
       bmi_underweight = "Underweight",
@@ -707,7 +713,7 @@ server <- function(input, output, session) {
           tr("waist_healthy"),
           tr("waist_elevated"),
           tr("waist_high")
-          )
+        )
         
         
         waistplot <- make_classification_plot(
@@ -722,12 +728,12 @@ server <- function(input, output, session) {
         if (waist < 55) {
           waistplot +
             annotate("text", x = waist + 2, y = 0.5,
-                     label = paste0(tr("Current waist circumference"), ": ", round(waist, 1), " cm"),
+                     label = paste0("Current waist circumference: ", round(waist, 1), " cm"),
                      size = 5, fontface = "bold", hjust = 0)
         } else {
           waistplot +
             annotate("text", x = waist - 2, y = 0.5,
-                     label = paste0(tr("Current waist circumference"), ": ", round(waist, 1), " cm"),
+                     label = paste0("Current waist circumference: ", round(waist, 1), " cm"),
                      size = 5, fontface = "bold", hjust = 1)
         }
       })
@@ -768,7 +774,6 @@ server <- function(input, output, session) {
         
         if (cholesterol < 5.2) {
           
-          # OPTIMAL
           div(
             style = "background-color:#e6ffe6; border-left:6px solid #009900;
                  padding:15px; margin-top:15px;",
@@ -834,7 +839,7 @@ server <- function(input, output, session) {
           tr("chol_optimal"),
           tr("chol_borderline"),
           tr("chol_high")
-          )
+        )
         
         make_classification_plot(
           value = cholesterol,
@@ -854,8 +859,8 @@ server <- function(input, output, session) {
     # ============================================================
     
     else {
+      
       new_person <- data.frame(
-        
         age = input$age,
         gender = as.numeric(input$gender),
         circumference_waist_1 = input$waist,
@@ -871,9 +876,68 @@ server <- function(input, output, session) {
       )
       
       new_processed <- predict(glucose_preproc, new_person)
-      new_dummied <- predict(glucose_dummies, new_processed)
+      new_dummied   <- predict(glucose_dummies, new_processed)
+      glucose       <- predict(glucose_model, new_dummied)
       
-      glucose <- predict(glucose_model, new_dummied)
+      output$warning_box <- renderUI({
+        
+        if (glucose < 3.78) {
+          
+          # LOW GLUCOSE
+          div(
+            style = "background-color:#fff3cd; border-left:6px solid #e6a800;
+                 padding:15px; margin-top:15px;",
+            strong(paste0("⚠️ ", tr("glucose_warn_low"), ": ")),
+            paste0(
+              tr("your_predicted_glucose_is"), " ",
+              round(glucose, 2), " ", tr("unit_mmol_l"), ". ",
+              tr("consult_specialist")
+            )
+          )
+          
+        } else if (glucose < 6.97) {
+          
+          # NORMAL
+          div(
+            style = "background-color:#e6ffe6; border-left:6px solid #009900;
+                 padding:15px; margin-top:15px;",
+            strong(paste0("✅ ", tr("glucose_warn_normal"), ": ")),
+            paste0(
+              tr("your_predicted_glucose_is"), " ",
+              round(glucose, 2), " ", tr("unit_mmol_l"), "."
+            )
+          )
+          
+        } else if (glucose < 7.61) {
+          
+          # PREDIABETES
+          div(
+            style = "background-color:#fff3cd; border-left:6px solid #e6a800;
+                 padding:15px; margin-top:15px;",
+            strong(paste0("⚠️ ", tr("glucose_warn_prediabetes"), ": ")),
+            paste0(
+              tr("your_predicted_glucose_is"), " ",
+              round(glucose, 2), " ", tr("unit_mmol_l"), ". ",
+              tr("consult_specialist")
+            )
+          )
+          
+        } else {
+          
+          # DIABETES
+          div(
+            style = "background-color:#ffe6e6; border-left:6px solid #cc0000;
+                 padding:15px; margin-top:15px;",
+            strong(paste0("⚠️ ", tr("glucose_warn_diabetes"), ": ")),
+            paste0(
+              tr("your_predicted_glucose_is"), " ",
+              round(glucose, 2), " ", tr("unit_mmol_l"), ". ",
+              tr("consult_specialist")
+            )
+          )
+        }
+      })
+      
       
       output$glucose_plot <- renderPlot({
         glucose <- glucose
@@ -886,7 +950,7 @@ server <- function(input, output, session) {
           xmin = c(0, 3.78, 6.97, 7.61),
           xmax = c(3.78, 6.97, 7.61, 21)
         )
- 
+        
         
         colors <- c(
           "#74add1",
@@ -915,6 +979,7 @@ server <- function(input, output, session) {
     }
     
     
+    
     output$message <- renderText({
       req(input$prediction)
       
@@ -938,14 +1003,15 @@ server <- function(input, output, session) {
       } else if (input$prediction == "Weight Gain") {
         paste0(round(predicted_weight - input$body_weight, 2), " kg")
       } else if (input$prediction == "Cholesterol") {
-        paste0(round(cholesterol, 2), " mmol/l")
-      } else {
+        paste0(round(cholesterol, 2), " mmol/L")
+      } else if (input$prediction == "Glucose") {
         paste0(round(glucose, 2), " mmol/L")
+        
       }
       
     })
     
-
+    
   })
   
   # Notes/limitations
