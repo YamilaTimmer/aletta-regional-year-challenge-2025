@@ -33,8 +33,6 @@ ui <- fluidPage(
           uiOutput("sidebar_inputs")
           
           
-          
-          
         ),
         
         mainPanel(
@@ -47,12 +45,12 @@ ui <- fluidPage(
           ),
           
           conditionalPanel(
-            condition = "input.prediction == 'Hypertension'",
+            condition = "input.prediction == 'Hypertension' || input.prediction == 'Hoge bloeddruk'",
             plotOutput("hypertension_plot", height = "200px")
           ),
           
           
-          conditionalPanel( condition = "input.prediction == 'Weight Gain'", 
+          conditionalPanel( condition = "input.prediction == 'Weight Gain' || input.prediction == 'Gewichtstoename'", 
                             plotOutput("bmi_plot", height = "200px"), 
                             plotOutput("waist_plot", height = "200px") ),
           
@@ -109,15 +107,16 @@ ui <- fluidPage(
         h4("Nutritional Variables", style = "margin-top: 20px; font-weight: bold;"),
         
         tags$ul(
-          tags$li(tags$b("NOVA intake 1:"), " Average daily grams consumed of unprocessed foods. 
+          tags$li(tags$b("Unprocessed food intake:"), " Average daily grams consumed of unprocessed foods. 
                   Such as fruits, vegetables, nuts, eggs and whole wheat products."),
-          tags$li(tags$b("NOVA intake 4:"), " Average daily grams consumed of highly-processed 
+          tags$li(tags$b("Highly-processed food intake:"), " Average daily grams consumed of highly-processed 
                   foods. Such as ready meals, crisps, fastfood and chocolate."),
-          tags$li(tags$b("Alcohol intake:"), " Average number of servings per day. One serving 
-                  is equal to one glass of beer (250 mL), one glass of wine (100 mL) or 35 mL of strong liquor."),
+          tags$li(tags$b("Alcohol intake:"), " Average number of standard drinks per day. One standard drink 
+                  is equal to one glass of beer (250 mL), one glass of wine (100 mL) or 1 shot (35 mL
+                  ) of strong liquor."),
           tags$li(tags$b("Added sugar:"), " Average added sugar intake daily in grams. Added 
-                  sugars are non-naturally occuring sugars that were added during processing 
-                  of the food item and are present in most snacks/sweets, soda and ice cream. 
+                  sugars include sugar added to coffee/tea or non-naturally occuring sugars that were added 
+                  during processing of the food item and are present in most snacks/sweets, soda and ice cream. 
                   Nutritional info on added sugar can be found on the packaging."),
           tags$li(tags$b("Kcal intake:"), " Average number of calories consumed daily."),
           
