@@ -5,36 +5,33 @@ library(pROC)
 diabetes_model <- readRDS("../models/diabetes_model.rds")
 hypertension_model <- readRDS("../models/hypertension_model.rds")
 
-body_wt_model <- readRDS("../models/bodyweight/bodywt_nnet_model.rds") 
-body_wt_preproc <- readRDS("../models/bodyweight/bodywt_preprocess.rds") 
+body_wt_model <- readRDS("../models/bodyweight/bodywt_nnet_model.rds")
+body_wt_preproc <- readRDS("../models/bodyweight/bodywt_preprocess.rds")
 body_wt_dummies <- readRDS("../models/bodyweight/bodywt_dummyVars.rds")
 
-cholesterol_model_1 <- readRDS("../models/cholesterol/chol1_nnet_model.rds") 
-cholesterol_preproc_1 <- readRDS("../models/cholesterol/chol1_preprocess.rds") 
+cholesterol_model_1 <- readRDS("../models/cholesterol/chol1_nnet_model.rds")
+cholesterol_preproc_1 <- readRDS("../models/cholesterol/chol1_preprocess.rds")
 cholesterol_dummies_1 <- readRDS("../models/cholesterol/chol1_dummyVars.rds")
 
-cholesterol_model_2 <- readRDS("../models/cholesterol/chol2_nnet_model.rds") 
-cholesterol_preproc_2 <- readRDS("../models/cholesterol/chol2_preprocess.rds") 
+cholesterol_model_2 <- readRDS("../models/cholesterol/chol2_nnet_model.rds")
+cholesterol_preproc_2 <- readRDS("../models/cholesterol/chol2_preprocess.rds")
 cholesterol_dummies_2 <- readRDS("../models/cholesterol/chol2_dummyVars.rds")
 
-glucose_model_1 <- readRDS("../models/glucose/glucose1_nnet_model.rds") 
-glucose_preproc_1 <- readRDS("../models/glucose/glucose1_preprocess.rds") 
+glucose_model_1 <- readRDS("../models/glucose/glucose1_nnet_model.rds")
+glucose_preproc_1 <- readRDS("../models/glucose/glucose1_preprocess.rds")
 glucose_dummies_1 <- readRDS("../models/glucose/glucose1_dummyVars.rds")
 
-glucose_model_2 <- readRDS("../models/glucose/glucose2_nnet_model.rds") 
-glucose_preproc_2 <- readRDS("../models/glucose/glucose2_preprocess.rds") 
+glucose_model_2 <- readRDS("../models/glucose/glucose2_nnet_model.rds")
+glucose_preproc_2 <- readRDS("../models/glucose/glucose2_preprocess.rds")
 glucose_dummies_2 <- readRDS("../models/glucose/glucose2_dummyVars.rds")
 
-make_risk_plot <- function(
-    risk_value,
-    xlab = "Predicted risk",
-    title = "Risk Classification",
-    caption = NULL,
-    low_label,
-    elevated_label,
-    high_label
-) {
-  
+make_risk_plot <- function(risk_value,
+                           xlab = "Predicted risk",
+                           title = "Risk Classification",
+                           caption = NULL,
+                           low_label,
+                           elevated_label,
+                           high_label) {
   risk_df <- tibble(
     category = factor(
       c(low_label, elevated_label, high_label),
@@ -47,10 +44,18 @@ make_risk_plot <- function(
   ggplot() +
     geom_rect(
       data = risk_df,
-      aes(xmin = xmin, xmax = xmax, ymin = 0, ymax = 1, fill = category),
+      aes(
+        xmin = xmin,
+        xmax = xmax,
+        ymin = 0,
+        ymax = 1,
+        fill = category
+      ),
       alpha = 0.6
     ) +
-    geom_vline(xintercept = risk_value, color = "black", size = 2) +
+    geom_vline(xintercept = risk_value,
+               color = "black",
+               size = 2) +
     scale_fill_manual(values = setNames(
       c("#a1d99b", "#fdae61", "#d73027"),
       c(low_label, elevated_label, high_label)
@@ -72,22 +77,28 @@ make_risk_plot <- function(
 
 
 
-make_classification_plot <- function(
-    value,
-    categories_df,
-    xlab,
-    title,
-    caption = NULL,
-    label_prefix = "Your value:",
-    colors
-) {
+make_classification_plot <- function(value,
+                                     categories_df,
+                                     xlab,
+                                     title,
+                                     caption = NULL,
+                                     label_prefix = "Your value:",
+                                     colors) {
   ggplot() +
     geom_rect(
       data = categories_df,
-      aes(xmin = xmin, xmax = xmax, ymin = 0, ymax = 1, fill = category),
+      aes(
+        xmin = xmin,
+        xmax = xmax,
+        ymin = 0,
+        ymax = 1,
+        fill = category
+      ),
       alpha = 0.6
     ) +
-    geom_vline(xintercept = value, color = "black", size = 2) +
+    geom_vline(xintercept = value,
+               color = "black",
+               size = 2) +
     scale_fill_manual(values = colors) +
     labs(
       x = xlab,
@@ -106,14 +117,11 @@ make_classification_plot <- function(
 
 
 server <- function(input, output, session) {
-  
   dict <- list(
-    
     # ============================
     # ENGLISH
     # ============================
     en = list(
-      
       # --- Generic phrases ---
       your_predicted_diabetes_risk_is        = "Your predicted diabetes risk for the next 5-10 years is",
       your_predicted_hypertension_risk_is    = "Your predicted hypertension risk for the next 5-10 years is",
@@ -127,7 +135,7 @@ server <- function(input, output, session) {
       
       low_risk = "Low risk",
       elevated_risk = "Elevated risk",
-      high_risk = "High risk", 
+      high_risk = "High risk",
       
       black_line = "(black line)",
       blue_line = "(blue, dashed line)",
@@ -199,7 +207,6 @@ server <- function(input, output, session) {
       
       # --- Captions ---
       caption_bmi        = "Categories based on Voedingscentrum",
-      caption_waist      = "Categories based on Voedingscentrum",
       caption_cholesterol = "Categories based on InformedHealth.org",
       caption_glucose     = "Categories based on WHO",
       
@@ -217,7 +224,6 @@ server <- function(input, output, session) {
     # DUTCH
     # ============================
     nl = list(
-      
       # --- Generic phrases ---
       your_predicted_diabetes_risk_is        = "Uw voorspelde diabetesrisico voor de komende 5-10 jaar is",
       your_predicted_hypertension_risk_is    = "Uw voorspelde hypertensierisico voor de komende 5-10 jaar is",
@@ -231,7 +237,7 @@ server <- function(input, output, session) {
       
       low_risk = "Laag risico",
       elevated_risk = "Verhoogd risico",
-      high_risk = "Hoog risico", 
+      high_risk = "Hoog risico",
       
       black_line = "(zwarte lijn)",
       blue_line = "(blauwe stippellijn)",
@@ -272,6 +278,12 @@ server <- function(input, output, session) {
       glucose_prediabetes = "Prediabetes",
       glucose_diabetes    = "Diabetes",
       
+      # --- Glucose warn ---
+      glucose_warn_low        = "Laag glucosegehalte",
+      glucose_warn_normal     = "Gezond resultaat",
+      glucose_warn_prediabetes = "Verhoogd glucosegehalte",
+      glucose_warn_diabetes    = "Hoog glucosegehalte",
+      
       # --- BMI categories ---
       bmi_underweight = "Ondergewicht",
       bmi_healthy     = "Gezond",
@@ -295,7 +307,6 @@ server <- function(input, output, session) {
       
       # --- Captions ---
       caption_bmi        = "Categorieën gebaseerd op Voedingscentrum",
-      caption_waist      = "Categorieën gebaseerd op Voedingscentrum",
       caption_cholesterol = "Categorieën gebaseerd op InformedHealth.org",
       caption_glucose     = "Categorieën gebaseerd op WHO",
       
@@ -318,12 +329,10 @@ server <- function(input, output, session) {
   # TAB 1 — RISK PREDICTION
   # ============================================================
   observeEvent(input$predict, {
-    
-    
     lat <- zipcode_data$latitude[zipcode_data$postcode == input$zipcode]
     lon <- zipcode_data$longitude[zipcode_data$postcode == input$zipcode]
     
-    length_m = input$body_height/100
+    length_m = input$body_height / 100
     bmi_t1 = input$body_weight / (length_m^2)
     
     
@@ -333,7 +342,6 @@ server <- function(input, output, session) {
     
     # Build new-person data frame
     if (input$prediction == "Diabetes") {
-      
       new_person <- data.frame(
         age = input$age,
         gender = as.numeric(input$gender),
@@ -350,49 +358,68 @@ server <- function(input, output, session) {
       # ============================
       
       output$warning_box <- renderUI({
-        
         if (diabetes_risk < 0.20) {
-          
           # LOW RISK
           div(
             style = "background-color:#e6ffe6; border-left:6px solid #009900;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("✅ ", tr("warn_low_diabetes"), ": ")),
-            paste0(
-              tr("your_predicted_diabetes_risk_is"), " ",
-              round(diabetes_risk * 100, 1), "%. ",
-              tr("considered_low")
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "✅ ", tr("warn_low_diabetes"), ": "
+            )),
+            
+            tr("your_predicted_diabetes_risk_is"),
+            " ",
+            strong(paste0(
+              round(diabetes_risk * 100, 1), "%"
+            )),
+            ". ",
+            tr("considered_low")
           )
           
         } else if (diabetes_risk >= 0.40) {
-          
           # HIGH RISK
           div(
             style = "background-color:#ffe6e6; border-left:6px solid #cc0000;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("warn_high_diabetes"), ": ")),
-            paste0(
-              tr("your_predicted_diabetes_risk_is"), " ",
-              round(diabetes_risk * 100, 1), "%. ",
-              tr("considered_high"), " ",
-              tr("consult_specialist")
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "⚠️ ", tr("warn_high_diabetes"), ": "
+            )),
+            
+            tr("your_predicted_diabetes_risk_is"),
+            " ",
+            strong(paste0(
+              round(diabetes_risk * 100, 1), "%"
+            )),
+            ". ",
+            
+            tr("considered_high"),
+            " ",
+            tr("consult_specialist")
           )
           
-        } else {
           
+        } else {
           # ELEVATED RISK
           div(
             style = "background-color:#fff3cd; border-left:6px solid #e6a800;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("warn_elev_diabetes"), ": ")),
-            paste0(
-              tr("your_predicted_diabetes_risk_is"), " ",
-              round(diabetes_risk * 100, 1), "%. ",
-              tr("considered_elevated")
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "⚠️ ", tr("warn_elev_diabetes"), ": "
+            )),
+            
+            tr("your_predicted_diabetes_risk_is"),
+            " ",
+            strong(paste0(
+              round(diabetes_risk * 100, 1), "%"
+            )),
+            ". ",
+            
+            tr("considered_elevated")
           )
+          
         }
       })
       
@@ -402,14 +429,13 @@ server <- function(input, output, session) {
       # ============================
       
       output$diabetes_plot <- renderPlot({
-        
         base <- make_risk_plot(
           risk_value = diabetes_risk,
-          xlab = tr("msg_diabetes"),                 
-          title = tr("title_diabetes_plot"),         
+          xlab = tr("msg_diabetes"),
+          title = tr("title_diabetes_plot"),
           caption = tr("risk_thresholds"),
-          low_label = tr("low_risk"), 
-          elevated_label = tr("elevated_risk"), 
+          low_label = tr("low_risk"),
+          elevated_label = tr("elevated_risk"),
           high_label = tr("high_risk")
         )
         
@@ -443,8 +469,8 @@ server <- function(input, output, session) {
     # ============================================================
     # Prediction 2 — HYPERTENSION PREDICTION
     # ============================================================
-    else if (input$prediction == "Hypertension" || input$prediction == "Hoge bloeddruk") {
-      
+    else if (input$prediction == "Hypertension" ||
+             input$prediction == "Hoge bloeddruk") {
       new_person <- data.frame(
         age = input$age,
         gender = as.numeric(input$gender),
@@ -455,58 +481,82 @@ server <- function(input, output, session) {
         bmi_t1 = bmi_t1
       )
       
-      hypertension_risk <- predict(hypertension_model, newdata = new_person, type = "response")
+      hypertension_risk <- predict(hypertension_model,
+                                   newdata = new_person,
+                                   type = "response")
       
       
       # ============================
-      # HYPERTENSION WARNING SYSTEM 
+      # HYPERTENSION WARNING SYSTEM
       # ============================
       
       output$warning_box <- renderUI({
-        
         if (hypertension_risk < 0.20) {
-          
           # LOW RISK
           div(
             style = "background-color:#e6ffe6; border-left:6px solid #009900;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("✅ ", tr("warn_low_hyper"), ": ")),
-            paste0(
-              tr("your_predicted_hypertension_risk_is"), " ",
-              round(hypertension_risk * 100, 1), "%. ",
-              tr("considered_low")
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0("✅ ", tr(
+              "warn_low_hyper"
+            ), ": ")),
+            
+            tr("your_predicted_hypertension_risk_is"),
+            " ",
+            strong(paste0(
+              round(hypertension_risk * 100, 1), "%"
+            )),
+            " . ",
+            
+            tr("considered_low")
           )
           
-        } else if (hypertension_risk >= 0.40) {
           
+        } else if (hypertension_risk >= 0.40) {
           # HIGH RISK
           div(
             style = "background-color:#ffe6e6; border-left:6px solid #cc0000;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("warn_high_hyper"), ": ")),
-            paste0(
-              tr("your_predicted_hypertension_risk_is"), " ",
-              round(hypertension_risk * 100, 1), "%. ",
-              tr("considered_high"), " ",
-              tr("consult_specialist")
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "⚠️ ", tr("warn_high_hyper"), ": "
+            )),
+            
+            tr("your_predicted_hypertension_risk_is"),
+            " ",
+            strong(paste0(
+              round(hypertension_risk * 100, 1), "%"
+            )),
+            " . ",
+            
+            tr("considered_high"),
+            " ",
+            tr("consult_specialist")
           )
           
-        } else {
           
+        } else {
           # ELEVATED RISK
           div(
             style = "background-color:#fff3cd; border-left:6px solid #e6a800;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("warn_elev_hyper"), ": ")),
-            paste0(
-              tr("your_predicted_hypertension_risk_is"), " ",
-              round(hypertension_risk * 100, 1), "%. ",
-              tr("considered_elevated"), " ",
-              tr("consult_specialist")
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "⚠️ ", tr("warn_elev_hyper"), ": "
+            )),
+            
+            tr("your_predicted_hypertension_risk_is"),
+            " ",
+            strong(paste0(
+              round(hypertension_risk * 100, 1), "%"
+            )),
+            " . ",
+            
+            tr("considered_elevated"),
+            " ",
+            tr("consult_specialist")
           )
+          
         }
       })
       
@@ -516,14 +566,13 @@ server <- function(input, output, session) {
       # ============================
       
       output$hypertension_plot <- renderPlot({
-        
         base <- make_risk_plot(
           risk_value = hypertension_risk,
           xlab = tr("msg_hypertension"),
           title = tr("title_hypertension_plot"),
           caption = tr("risk_thresholds"),
-          low_label = tr("low_risk"), 
-          elevated_label = tr("elevated_risk"), 
+          low_label = tr("low_risk"),
+          elevated_label = tr("elevated_risk"),
           high_label = tr("high_risk")
         )
         
@@ -559,8 +608,8 @@ server <- function(input, output, session) {
     # ============================================================
     # Prediction 3 — WEIGHT GAIN
     # ============================================================
-    else if (input$prediction == "Weight Gain" || input$prediction == "Gewichtstoename") {
-      
+    else if (input$prediction == "Weight Gain" ||
+             input$prediction == "Gewichtstoename") {
       new_person <- data.frame(
         age = input$age,
         gender = as.numeric(input$gender),
@@ -588,96 +637,134 @@ server <- function(input, output, session) {
       # ============================
       
       output$warning_box <- renderUI({
-        
-        if ((bmi_t1 >= 18.5 && bmi_t1 < 25) && (predicted_bmi >= 18.5 && predicted_bmi < 25)) {
-          
+        if ((bmi_t1 >= 18.5 &&
+             bmi_t1 < 25) && (predicted_bmi >= 18.5 && predicted_bmi < 25)) {
           # HEALTHY BMI
           div(
             style = "background-color:#e6ffe6; border-left:6px solid #009900;
            padding:15px; margin-top:15px;",
             
-            strong(paste0("✅ ", tr("warn_bmi_healthy"), ": ")),
+            strong(paste0(
+              "✅ ", tr("warn_bmi_healthy"), ": "
+            )),
             
-            tr("current_bmi"), " ",
-            strong(round(bmi_t1, 1)), " ",
+            tr("current_bmi"),
+            " ",
+            strong(round(bmi_t1, 1)),
+            " ",
             paste0(tr("black_line"), ". "),
             
-            tr("predicted_bmi"), " ",
-            strong(round(predicted_bmi, 1)), " ",
+            tr("predicted_bmi"),
+            " ",
+            strong(round(predicted_bmi, 1)),
+            " ",
             paste0(tr("blue_line"), ". "),
             
-            tr("your_predicted_weight_gain_is"), " ",
-            strong(paste0(round(predicted_weight - input$body_weight, 1), " kg."))
+            tr("your_predicted_weight_gain_is"),
+            " ",
+            strong(paste0(
+              round(predicted_weight - input$body_weight, 1),
+              " kg."
+            ))
           )
           
           
         } else if (bmi_t1 >= 30 || predicted_bmi >= 30) {
-          
           # OBESE
           div(
             style = "background-color:#ffe6e6; border-left:6px solid #cc0000;
            padding:15px; margin-top:15px;",
             
-            strong(paste0("⚠️ ", tr("warn_bmi_obese"), ": ")),
+            strong(paste0(
+              "⚠️ ", tr("warn_bmi_obese"), ": "
+            )),
             
-            tr("current_bmi"), " ",
-            strong(round(bmi_t1, 1)), " ",
+            tr("current_bmi"),
+            " ",
+            strong(round(bmi_t1, 1)),
+            " ",
             paste0(tr("black_line"), ". "),
             
-            tr("predicted_bmi"), " ",
-            strong(round(predicted_bmi, 1)), " ",
+            tr("predicted_bmi"),
+            " ",
+            strong(round(predicted_bmi, 1)),
+            " ",
             paste0(tr("blue_line"), ". "),
             
-            tr("your_predicted_weight_gain_is"), " ",
-            strong(paste0(round(predicted_weight - input$body_weight, 1), " kg.")), " ",
+            tr("your_predicted_weight_gain_is"),
+            " ",
+            strong(paste0(
+              round(predicted_weight - input$body_weight, 1),
+              " kg."
+            )),
+            " ",
             
             tr("consult_specialist")
           )
           
           
         } else if (bmi_t1 < 18.5 || predicted_bmi < 18.5) {
-          
           # UNDERWEIGHT
           div(
             style = "background-color:#fff3cd; border-left:6px solid #e6a800;
            padding:15px; margin-top:15px;",
             
-            strong(paste0("⚠️ ", tr("warn_bmi_under"), ": ")),
+            strong(paste0(
+              "⚠️ ", tr("warn_bmi_under"), ": "
+            )),
             
-            tr("current_bmi"), " ",
-            strong(round(bmi_t1, 1)), " ",
+            tr("current_bmi"),
+            " ",
+            strong(round(bmi_t1, 1)),
+            " ",
             paste0(tr("black_line"), ". "),
             
-            tr("predicted_bmi"), " ",
-            strong(round(predicted_bmi, 1)), " ",
+            tr("predicted_bmi"),
+            " ",
+            strong(round(predicted_bmi, 1)),
+            " ",
             paste0(tr("blue_line"), ". "),
             
-            tr("your_predicted_weight_gain_is"), " ",
-            strong(paste0(round(predicted_weight - input$body_weight, 1), " kg.")), " ",
+            tr("your_predicted_weight_gain_is"),
+            " ",
+            strong(paste0(
+              round(predicted_weight - input$body_weight, 1),
+              " kg."
+            )),
+            " ",
             
             tr("consult_specialist")
           )
           
           
         } else {
-          
           # OVERWEIGHT
           div(
             style = "background-color:#fff3cd; border-left:6px solid #e6a800;
            padding:15px; margin-top:15px;",
             
-            strong(paste0("⚠️ ", tr("warn_bmi_over"), ": ")),
+            strong(paste0("⚠️ ", tr(
+              "warn_bmi_over"
+            ), ": ")),
             
-            tr("current_bmi"), " ",
-            strong(round(bmi_t1, 1)), " ",
+            tr("current_bmi"),
+            " ",
+            strong(round(bmi_t1, 1)),
+            " ",
             paste0(tr("black_line"), ". "),
             
-            tr("predicted_bmi"), " ",
-            strong(round(predicted_bmi, 1)), " ",
+            tr("predicted_bmi"),
+            " ",
+            strong(round(predicted_bmi, 1)),
+            " ",
             paste0(tr("blue_line"), ". "),
             
-            tr("your_predicted_weight_gain_is"), " ",
-            strong(paste0(round(predicted_weight - input$body_weight, 1), " kg."))
+            tr("your_predicted_weight_gain_is"),
+            " ",
+            strong(paste0(
+              round(predicted_weight - input$body_weight, 1),
+              " kg."
+            ))
           )
           
         }
@@ -689,25 +776,26 @@ server <- function(input, output, session) {
       # ============================
       
       output$bmi_plot <- renderPlot({
-        
         bmi_value <- bmi_t1
         predicted_bmi <- predicted_weight / (length_m^2)
         
         bmi_df <- tibble(
-          category = factor(
-            c(tr("bmi_underweight"), tr("bmi_healthy"), tr("bmi_overweight"), tr("bmi_obese")),
-            levels = c(tr("bmi_underweight"), tr("bmi_healthy"), tr("bmi_overweight"), tr("bmi_obese"))
-          ),
+          category = factor(c(
+            tr("bmi_underweight"),
+            tr("bmi_healthy"),
+            tr("bmi_overweight"),
+            tr("bmi_obese")
+          ), levels = c(
+            tr("bmi_underweight"),
+            tr("bmi_healthy"),
+            tr("bmi_overweight"),
+            tr("bmi_obese")
+          )),
           xmin = c(0, 18.5, 25, 30),
           xmax = c(18.5, 25, 30, 50)
         )
         
-        colors <- c(
-          "#74add1",
-          "#a1d99b",
-          "#fdae61",
-          "#d73027"
-        )
+        colors <- c("#74add1", "#a1d99b", "#fdae61", "#d73027")
         
         names(colors) <- c(
           tr("bmi_underweight"),
@@ -728,22 +816,60 @@ server <- function(input, output, session) {
         # Dynamic label placement
         if (predicted_bmi < bmi_value) {
           base_plot +
-            geom_vline(xintercept = predicted_bmi, color = "blue", size = 2, linetype = "dashed") +
-            annotate("text", x = predicted_bmi - 0.5, y = 0.5,
-                     label = round(predicted_bmi, 1),
-                     size = 5, fontface = "bold", color = "blue", hjust = 1) +
-            annotate("text", x = bmi_value + 0.5, y = 0.5,
-                     label = round(bmi_value, 1),
-                     size = 5, fontface = "bold", color = "black", hjust = 0)
+            geom_vline(
+              xintercept = predicted_bmi,
+              color = "blue",
+              size = 2,
+              linetype = "dashed"
+            ) +
+            annotate(
+              "text",
+              x = predicted_bmi - 0.5,
+              y = 0.5,
+              label = round(predicted_bmi, 1),
+              size = 5,
+              fontface = "bold",
+              color = "blue",
+              hjust = 1
+            ) +
+            annotate(
+              "text",
+              x = bmi_value + 0.5,
+              y = 0.5,
+              label = round(bmi_value, 1),
+              size = 5,
+              fontface = "bold",
+              color = "black",
+              hjust = 0
+            )
         } else {
           base_plot +
-            geom_vline(xintercept = predicted_bmi, color = "blue", size = 2, linetype = "dashed") +
-            annotate("text", x = predicted_bmi + 0.5, y = 0.5,
-                     label = round(predicted_bmi, 1),
-                     size = 5, fontface = "bold", color = "blue", hjust = 0) +
-            annotate("text", x = bmi_value - 0.5, y = 0.5,
-                     label = round(bmi_value, 1),
-                     size = 5, fontface = "bold", color = "black", hjust = 1)
+            geom_vline(
+              xintercept = predicted_bmi,
+              color = "blue",
+              size = 2,
+              linetype = "dashed"
+            ) +
+            annotate(
+              "text",
+              x = predicted_bmi + 0.5,
+              y = 0.5,
+              label = round(predicted_bmi, 1),
+              size = 5,
+              fontface = "bold",
+              color = "blue",
+              hjust = 0
+            ) +
+            annotate(
+              "text",
+              x = bmi_value - 0.5,
+              y = 0.5,
+              label = round(bmi_value, 1),
+              size = 5,
+              fontface = "bold",
+              color = "black",
+              hjust = 1
+            )
         }
       })
       
@@ -753,42 +879,46 @@ server <- function(input, output, session) {
       # ============================
       
       output$waist_plot <- renderPlot({
-        
         waist <- input$waist
-        if (is.na(waist) || waist == "") waist <- 80
+        if (is.na(waist) || waist == "")
+          waist <- 80
         gender <- as.numeric(input$gender)
         
         wc_df <- if (gender == 1) {
           tibble(
-            category = factor(
-              c(tr("waist_healthy"), tr("waist_elevated"), tr("waist_high")),
-              levels = c(tr("waist_healthy"), tr("waist_elevated"), tr("waist_high"))
-            ),
+            category = factor(c(
+              tr("waist_healthy"),
+              tr("waist_elevated"),
+              tr("waist_high")
+            ), levels = c(
+              tr("waist_healthy"),
+              tr("waist_elevated"),
+              tr("waist_high")
+            )),
             xmin = c(0, 94, 102),
             xmax = c(94, 102, 150)
           )
         } else {
           tibble(
-            category = factor(
-              c(tr("waist_healthy"), tr("waist_elevated"), tr("waist_high")),
-              levels = c(tr("waist_healthy"), tr("waist_elevated"), tr("waist_high"))
-            ),
+            category = factor(c(
+              tr("waist_healthy"),
+              tr("waist_elevated"),
+              tr("waist_high")
+            ), levels = c(
+              tr("waist_healthy"),
+              tr("waist_elevated"),
+              tr("waist_high")
+            )),
             xmin = c(0, 80, 88),
             xmax = c(80, 88, 150)
           )
         }
         
-        colors <- c(
-          "#a1d99b",
-          "#fdae61",
-          "#d73027"
-        )
+        colors <- c("#a1d99b", "#fdae61", "#d73027")
         
-        names(colors) <- c(
-          tr("waist_healthy"),
-          tr("waist_elevated"),
-          tr("waist_high")
-        )
+        names(colors) <- c(tr("waist_healthy"),
+                           tr("waist_elevated"),
+                           tr("waist_high"))
         
         
         waistplot <- make_classification_plot(
@@ -796,15 +926,21 @@ server <- function(input, output, session) {
           categories_df = wc_df,
           title = tr("title_waist_plot"),
           xlab = tr("x_axis_waist_plot"),
-          caption = tr("caption_waist"),
+          caption = tr("caption_bmi"),
           colors = colors
         )
         
-          waistplot +
-            annotate("text", x = waist + 2, y = 0.5,
-                     label = round(waist, 1),
-                     size = 5, fontface = "bold", hjust = 0)
-
+        waistplot +
+          annotate(
+            "text",
+            x = waist + 2,
+            y = 0.5,
+            label = round(waist, 1),
+            size = 5,
+            fontface = "bold",
+            hjust = 0
+          )
+        
       })
     }
     
@@ -813,7 +949,6 @@ server <- function(input, output, session) {
     # Prediction 4 — CHOLESTEROL
     # ============================================================
     else if (input$prediction == "Cholesterol") {
-      
       new_person <- data.frame(
         age = input$age,
         gender = as.numeric(input$gender),
@@ -839,59 +974,98 @@ server <- function(input, output, session) {
       future_cholesterol <- predict(cholesterol_model_2, future_chol_dummied)
       
       # ============================
-      # CHOLESTEROL WARNING SYSTEM 
+      # CHOLESTEROL WARNING SYSTEM
       # ============================
       
       output$warning_box <- renderUI({
-        
         if (current_cholesterol < 5.2 && future_cholesterol < 5.2) {
-          
+          # OPTIMAL CHOLESTEROL
           div(
             style = "background-color:#e6ffe6; border-left:6px solid #009900;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("✅ ", tr("warn_chol_optimal"), ": ")),
-            paste0(
-              tr("your_current_predicted_cholesterol_is"), " ",
-              round(current_cholesterol, 2), " mmol/L ", tr("black_line"), ". ",
-              
-              tr("your_predicted_cholesterol_is"), " ",
-              round(future_cholesterol, 2), " mmol/L ", tr("blue_line"), "."
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "✅ ", tr("warn_chol_optimal"), ": "
+            )),
+            
+            tr("your_current_predicted_cholesterol_is"),
+            " ",
+            strong(paste0(
+              round(current_cholesterol, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("black_line"), ". "),
+            
+            tr("your_predicted_cholesterol_is"),
+            " ",
+            strong(paste0(
+              round(future_cholesterol, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("blue_line"), ".")
           )
           
-        } else if (current_cholesterol >= 6.2 || future_cholesterol >= 6.2) {
           
-          # HIGH RISK
+        } else if (current_cholesterol >= 6.2 ||
+                   future_cholesterol >= 6.2) {
+          # HIGH CHOLESTEROL RISK
           div(
             style = "background-color:#ffe6e6; border-left:6px solid #cc0000;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("warn_chol_high"), ": ")),
-            paste0(
-              tr("your_current_predicted_cholesterol_is"), " ",
-              round(current_cholesterol, 2), " mmol/L ", tr("black_line"), ". ",
-              
-              tr("your_predicted_cholesterol_is"), " ",
-              round(future_cholesterol, 2), " mmol/L ", tr("blue_line"), ". ",
-              tr("consult_specialist")
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "⚠️ ", tr("warn_chol_high"), ": "
+            )),
+            
+            tr("your_current_predicted_cholesterol_is"),
+            " ",
+            strong(paste0(
+              round(current_cholesterol, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("black_line"), ". "),
+            
+            tr("your_predicted_cholesterol_is"),
+            " ",
+            strong(paste0(
+              round(future_cholesterol, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("blue_line"), ". "),
+            
+            tr("consult_specialist")
           )
+          
           
         } else {
-          
-          # ELEVATED
+          # ELEVATED CHOLESTEROL RISK
           div(
             style = "background-color:#fff3cd; border-left:6px solid #e6a800;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("warn_chol_elevated"), ": ")),
-            paste0(
-              tr("your_current_predicted_cholesterol_is"), " ",
-              round(current_cholesterol, 2), " mmol/L ", tr("black_line"), ". ",
-              
-              tr("your_predicted_cholesterol_is"), " ",
-              round(future_cholesterol, 2), " mmol/L ", tr("blue_line"), ". ",
-              tr("consult_specialist")
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "⚠️ ", tr("warn_chol_elevated"), ": "
+            )),
+            
+            tr("your_current_predicted_cholesterol_is"),
+            " ",
+            strong(paste0(
+              round(current_cholesterol, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("black_line"), ". "),
+            
+            tr("your_predicted_cholesterol_is"),
+            " ",
+            strong(paste0(
+              round(future_cholesterol, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("blue_line"), ". "),
+            
+            tr("consult_specialist")
           )
+          
         }
       })
       
@@ -901,27 +1075,25 @@ server <- function(input, output, session) {
       # ============================
       
       output$cholesterol_plot <- renderPlot({
-        
         chol_df <- tibble(
-          category = factor(
-            c(tr("chol_optimal"), tr("chol_borderline"), tr("chol_high")),
-            levels = c(tr("chol_optimal"), tr("chol_borderline"), tr("chol_high"))
-          ),
+          category = factor(c(
+            tr("chol_optimal"),
+            tr("chol_borderline"),
+            tr("chol_high")
+          ), levels = c(
+            tr("chol_optimal"),
+            tr("chol_borderline"),
+            tr("chol_high")
+          )),
           xmin = c(0, 5.2, 6.2),
           xmax = c(5.2, 6.2, 10)
         )
         
-        colors <- c(
-          "#a1d99b",
-          "#fdae61",
-          "#d73027"
-        )
+        colors <- c("#a1d99b", "#fdae61", "#d73027")
         
-        names(colors) <- c(
-          tr("chol_optimal"),
-          tr("chol_borderline"),
-          tr("chol_high")
-        )
+        names(colors) <- c(tr("chol_optimal"),
+                           tr("chol_borderline"),
+                           tr("chol_high"))
         
         chol_plot <- make_classification_plot(
           value = current_cholesterol,
@@ -936,22 +1108,60 @@ server <- function(input, output, session) {
         
         if (future_cholesterol < current_cholesterol) {
           chol_plot +
-            geom_vline(xintercept = future_cholesterol, color = "blue", size = 2, linetype = "dashed") +
-            annotate("text", x = future_cholesterol - 0.5, y = 0.5,
-                     label = round(future_cholesterol, 2),
-                     size = 5, fontface = "bold", color = "blue", hjust = 1) +
-            annotate("text", x = current_cholesterol + 0.5, y = 0.5,
-                     label = round(current_cholesterol, 2),
-                     size = 5, fontface = "bold", color = "black", hjust = 0)
+            geom_vline(
+              xintercept = future_cholesterol,
+              color = "blue",
+              size = 2,
+              linetype = "dashed"
+            ) +
+            annotate(
+              "text",
+              x = future_cholesterol - 0.5,
+              y = 0.5,
+              label = round(future_cholesterol, 2),
+              size = 5,
+              fontface = "bold",
+              color = "blue",
+              hjust = 1
+            ) +
+            annotate(
+              "text",
+              x = current_cholesterol + 0.5,
+              y = 0.5,
+              label = round(current_cholesterol, 2),
+              size = 5,
+              fontface = "bold",
+              color = "black",
+              hjust = 0
+            )
         } else {
           chol_plot +
-            geom_vline(xintercept = future_cholesterol, color = "blue", size = 2, linetype = "dashed") +
-            annotate("text", x = future_cholesterol + 0.5, y = 0.5,
-                     label = round(future_cholesterol, 2),
-                     size = 5, fontface = "bold", color = "blue", hjust = 0) +
-            annotate("text", x = current_cholesterol - 0.5, y = 0.5,
-                     label = round(current_cholesterol, 2),
-                     size = 5, fontface = "bold", color = "black", hjust = 1)
+            geom_vline(
+              xintercept = future_cholesterol,
+              color = "blue",
+              size = 2,
+              linetype = "dashed"
+            ) +
+            annotate(
+              "text",
+              x = future_cholesterol + 0.5,
+              y = 0.5,
+              label = round(future_cholesterol, 2),
+              size = 5,
+              fontface = "bold",
+              color = "blue",
+              hjust = 0
+            ) +
+            annotate(
+              "text",
+              x = current_cholesterol - 0.5,
+              y = 0.5,
+              label = round(current_cholesterol, 2),
+              size = 5,
+              fontface = "bold",
+              color = "black",
+              hjust = 1
+            )
         }
       })
     }
@@ -962,7 +1172,6 @@ server <- function(input, output, session) {
     # ============================================================
     
     else {
-      
       new_person <- data.frame(
         age = input$age,
         gender = as.numeric(input$gender),
@@ -988,102 +1197,146 @@ server <- function(input, output, session) {
       
       
       output$warning_box <- renderUI({
-        
         if (current_gluc < 3.78 || future_gluc < 3.78) {
-          
           # LOW GLUCOSE
           div(
             style = "background-color:#fff3cd; border-left:6px solid #e6a800;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("glucose_warn_low"), ": ")),
-            paste0(
-              tr("your_current_predicted_glucose_is"), " ",
-              round(current_gluc, 2), " mmol/L ", tr("black_line"), ". ",
-              
-              tr("your_predicted_glucose_is"), " ",
-              round(future_gluc, 2), " mmol/L ", tr("blue_line"), ". ",
-              tr("consult_specialist")
-              
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "⚠️ ", tr("glucose_warn_low"), ": "
+            )),
+            
+            tr("your_current_predicted_glucose_is"),
+            " ",
+            strong(paste0(
+              round(current_gluc, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("black_line"), ". "),
+            
+            tr("your_predicted_glucose_is"),
+            " ",
+            strong(paste0(
+              round(future_gluc, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("blue_line"), ". "),
+            
+            tr("consult_specialist")
           )
+          
           
         } else if (current_gluc < 6.97 && future_gluc < 6.97) {
-          
-          # NORMAL
+          # NORMAL GLUCOSE
           div(
             style = "background-color:#e6ffe6; border-left:6px solid #009900;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("✅ ", tr("glucose_warn_normal"), ": ")),
+           padding:15px; margin-top:15px;",
             
-            paste0(
-              tr("your_current_predicted_glucose_is"), " ",
-              round(current_gluc, 2), " mmol/L ", tr("black_line"), ". ",
-              
-              tr("your_predicted_glucose_is"), " ",
-              round(future_gluc, 2), " mmol/L ", tr("blue_line"), "."
-            )
+            strong(paste0(
+              "✅ ", tr("glucose_warn_normal"), ": "
+            )),
             
+            tr("your_current_predicted_glucose_is"),
+            " ",
+            strong(paste0(
+              round(current_gluc, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("black_line"), ". "),
+            
+            tr("your_predicted_glucose_is"),
+            " ",
+            strong(paste0(
+              round(future_gluc, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("blue_line"), ".")
           )
+          
           
         } else if (current_gluc < 7.61 || future_gluc < 7.61) {
-          
-          # PREDIABETES
+          # PREDIABETES GLUCOSE
           div(
             style = "background-color:#fff3cd; border-left:6px solid #e6a800;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("glucose_warn_prediabetes"), ": ")),
+           padding:15px; margin-top:15px;",
             
-            paste0(
-              tr("your_current_predicted_glucose_is"), " ",
-              round(current_gluc, 2), " mmol/L ", tr("black_line"), ". ",
-              
-              tr("your_predicted_glucose_is"), " ",
-              round(future_gluc, 2), " mmol/L ", tr("blue_line"), ". ",
-              tr("consult_specialist")
-              
-            )
+            strong(paste0(
+              "⚠️ ", tr("glucose_warn_prediabetes"), ": "
+            )),
             
+            tr("your_current_predicted_glucose_is"),
+            " ",
+            strong(paste0(
+              round(current_gluc, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("black_line"), ". "),
+            
+            tr("your_predicted_glucose_is"),
+            " ",
+            strong(paste0(
+              round(future_gluc, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("blue_line"), ". "),
+            
+            tr("consult_specialist")
           )
+          
           
         } else {
-          
-          # DIABETES
+          # DIABETES GLUCOSE
           div(
             style = "background-color:#ffe6e6; border-left:6px solid #cc0000;
-                 padding:15px; margin-top:15px;",
-            strong(paste0("⚠️ ", tr("glucose_warn_diabetes"), ": ")),
-            paste0(
-              tr("your_current_predicted_glucose_is"), " ",
-              round(current_gluc, 2), " mmol/L ", tr("black_line"), ". ",
-              
-              tr("your_predicted_glucose_is"), " ",
-              round(future_gluc, 2), " mmol/L ", tr("blue_line"), ". ",
-              tr("consult_specialist")
-              
-            )
+           padding:15px; margin-top:15px;",
+            
+            strong(paste0(
+              "⚠️ ", tr("glucose_warn_diabetes"), ": "
+            )),
+            
+            tr("your_current_predicted_glucose_is"),
+            " ",
+            strong(paste0(
+              round(current_gluc, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("black_line"), ". "),
+            
+            tr("your_predicted_glucose_is"),
+            " ",
+            strong(paste0(
+              round(future_gluc, 2), " mmol/L"
+            )),
+            " ",
+            paste0(tr("blue_line"), ". "),
+            
+            tr("consult_specialist")
           )
+          
         }
       })
       
       
       output$glucose_plot <- renderPlot({
-        
         glucose_df <- tibble(
-          category = factor(
-            c(tr("glucose_low"), tr("glucose_normal"), tr("glucose_prediabetes"), tr("glucose_diabetes")),
-            levels = c(tr("glucose_low"), tr("glucose_normal"), tr("glucose_prediabetes"), tr("glucose_diabetes"))
-          ),
+          category = factor(c(
+            tr("glucose_low"),
+            tr("glucose_normal"),
+            tr("glucose_prediabetes"),
+            tr("glucose_diabetes")
+          ), levels = c(
+            tr("glucose_low"),
+            tr("glucose_normal"),
+            tr("glucose_prediabetes"),
+            tr("glucose_diabetes")
+          )),
           xmin = c(0, 3.78, 6.97, 7.61),
           xmax = c(3.78, 6.97, 7.61, 21)
         )
         
         
-        colors <- c(
-          "#74add1",
-          "#a1d99b",
-          "#fdae61",
-          "#d73027"
-        )
+        colors <- c("#74add1", "#a1d99b", "#fdae61", "#d73027")
         
         names(colors) <- c(
           tr("glucose_low"),
@@ -1104,22 +1357,60 @@ server <- function(input, output, session) {
         
         if (future_gluc < current_gluc) {
           gluc_plot +
-            geom_vline(xintercept = future_gluc, color = "blue", size = 2, linetype = "dashed") +
-            annotate("text", x = future_gluc - 0.5, y = 0.5,
-                     label = round(future_gluc, 2),
-                     size = 5, fontface = "bold", color = "blue", hjust = 1) +
-            annotate("text", x = current_gluc + 0.5, y = 0.5,
-                     label = round(current_gluc, 2),
-                     size = 5, fontface = "bold", color = "black", hjust = 0)
+            geom_vline(
+              xintercept = future_gluc,
+              color = "blue",
+              size = 2,
+              linetype = "dashed"
+            ) +
+            annotate(
+              "text",
+              x = future_gluc - 0.5,
+              y = 0.5,
+              label = round(future_gluc, 2),
+              size = 5,
+              fontface = "bold",
+              color = "blue",
+              hjust = 1
+            ) +
+            annotate(
+              "text",
+              x = current_gluc + 0.5,
+              y = 0.5,
+              label = round(current_gluc, 2),
+              size = 5,
+              fontface = "bold",
+              color = "black",
+              hjust = 0
+            )
         } else {
           gluc_plot +
-            geom_vline(xintercept = future_gluc, color = "blue", size = 2, linetype = "dashed") +
-            annotate("text", x = future_gluc + 0.5, y = 0.5,
-                     label = round(future_gluc, 2),
-                     size = 5, fontface = "bold", color = "blue", hjust = 0) +
-            annotate("text", x = current_gluc - 0.5, y = 0.5,
-                     label = round(current_gluc, 2),
-                     size = 5, fontface = "bold", color = "black", hjust = 1)
+            geom_vline(
+              xintercept = future_gluc,
+              color = "blue",
+              size = 2,
+              linetype = "dashed"
+            ) +
+            annotate(
+              "text",
+              x = future_gluc + 0.5,
+              y = 0.5,
+              label = round(future_gluc, 2),
+              size = 5,
+              fontface = "bold",
+              color = "blue",
+              hjust = 0
+            ) +
+            annotate(
+              "text",
+              x = current_gluc - 0.5,
+              y = 0.5,
+              label = round(current_gluc, 2),
+              size = 5,
+              fontface = "bold",
+              color = "black",
+              hjust = 1
+            )
         }
       })
     }
@@ -1129,20 +1420,22 @@ server <- function(input, output, session) {
     output$message <- renderText({
       req(input$prediction)
       
-      if (input$prediction == "Diabetes"){
+      if (input$prediction == "Diabetes") {
         tr("msg_diabetes")
         
-      } else if (input$prediction == "Hypertension" || input$prediction == "Hoge bloeddruk"){
+      } else if (input$prediction == "Hypertension" ||
+                 input$prediction == "Hoge bloeddruk") {
         tr("msg_hypertension")
         
-      } else if (input$prediction == "Weight Gain" || input$prediction == "Gewichtstoename"){
+      } else if (input$prediction == "Weight Gain" ||
+                 input$prediction == "Gewichtstoename") {
         tr("msg_weight")
-      } else if (input$prediction == "Cholesterol"){
+      } else if (input$prediction == "Cholesterol") {
         tr("msg_cholesterol")
       } else {
         tr("msg_glucose")
         
-      } 
+      }
       
     })
     
@@ -1152,9 +1445,11 @@ server <- function(input, output, session) {
       
       if (input$prediction == "Diabetes") {
         paste0(round(diabetes_risk * 100, 2), " %")
-      } else if (input$prediction == "Hypertension" || input$prediction == "Hoge bloeddruk") {
+      } else if (input$prediction == "Hypertension" ||
+                 input$prediction == "Hoge bloeddruk") {
         paste0(round(hypertension_risk * 100, 2), " %")
-      } else if (input$prediction == "Weight Gain" || input$prediction == "Gewichtstoename") {
+      } else if (input$prediction == "Weight Gain" ||
+                 input$prediction == "Gewichtstoename") {
         paste0(round(predicted_weight - input$body_weight, 2), " kg")
       } else if (input$prediction == "Cholesterol") {
         paste0(round(current_cholesterol, 2), " mmol/L")
@@ -1171,55 +1466,122 @@ server <- function(input, output, session) {
   # Sidebar panel
   
   output$sidebar_inputs <- renderUI({
-    
     if (input$language == "en") {
-      tagList(    
+      tagList(
         selectInput(
           "prediction",
           "Select prediction:",
-          choices = c("Diabetes", "Hypertension", "Weight Gain", "Cholesterol", "Glucose")
+          choices = c(
+            "Diabetes",
+            "Hypertension",
+            "Weight Gain",
+            "Cholesterol",
+            "Glucose"
+          )
         ),
         
-      
+        
         # Shared inputs
-        numericInput("age", "Age (years)", value = 40, min = 18, max = 100),
-        selectInput("gender", "Gender", choices = c("Female" = 0, "Male" = 1)),
-        numericInput("body_height", "Body length (cm)", value = 180, min = 70, max = 250),
-        numericInput("body_weight", "Body weight (kg)", value = 80, min = 30, max = 250),
-        numericInput("waist", "Waist circumference (cm)", value = 80, min = 40, max = 200),
-        numericInput("nova1", "Daily intake of unprocessed foods (in gram)", value = 600, min = 0, max = 5000),
+        numericInput(
+          "age",
+          "Age (years)",
+          value = 40,
+          min = 18,
+          max = 100
+        ),
+        selectInput("gender", "Gender", choices = c(
+          "Female" = 0, "Male" = 1
+        )),
+        numericInput(
+          "body_height",
+          "Body length (cm)",
+          value = 180,
+          min = 70,
+          max = 250
+        ),
+        numericInput(
+          "body_weight",
+          "Body weight (kg)",
+          value = 80,
+          min = 30,
+          max = 250
+        ),
+        numericInput(
+          "waist",
+          "Waist circumference (cm)",
+          value = 80,
+          min = 40,
+          max = 200
+        ),
+        numericInput(
+          "nova1",
+          "Daily intake of unprocessed foods (in gram)",
+          value = 600,
+          min = 0,
+          max = 5000
+        ),
         helpText("E.g. vegetables and fruit."),
         selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
         
         
         conditionalPanel(
           condition = "input.prediction == 'Hypertension' ||
-                      input.prediction == 'Weight Gain' || 
-                      input.prediction == 'Cholesterol' || 
+                      input.prediction == 'Weight Gain' ||
+                      input.prediction == 'Cholesterol' ||
                       input.prediction == 'Glucose' ",
           
           
           
-          numericInput("alcohol_intake", "Daily alcohol intake (per standard drink)", value = 0, min = 0, max = 30),
-          helpText("1 standard drink = 1 glass of beer/wine or 1 shot of hard liquor."),
+          numericInput(
+            "alcohol_intake",
+            "Daily alcohol intake (per standard drink)",
+            value = 0,
+            min = 0,
+            max = 30
+          ),
+          helpText(
+            "1 standard drink = 1 glass of beer/wine or 1 shot of hard liquor."
+          ),
           
         ),
         
         conditionalPanel(
-          condition = " input.prediction == 'Weight Gain' || 
-          input.prediction == 'Cholesterol' || 
+          condition = " input.prediction == 'Weight Gain' ||
+          input.prediction == 'Cholesterol' ||
           input.prediction == 'Glucose' ",
           
-          
-          numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
-          numericInput("nova4", "Daily intake of highly processed foods (in gram)", value = 500, min = 0, max = 5000),
+          numericInput(
+            "hip",
+            "Hip circumference (cm)",
+            value = 90,
+            min = 40,
+            max = 200
+          ),
+          numericInput(
+            "nova4",
+            "Daily intake of highly processed foods (in gram)",
+            value = 500,
+            min = 0,
+            max = 5000
+          ),
           helpText("E.g. ready‑to‑eat meals or crisps."),
-          numericInput("kcal", "Daily caloric intake (in kcal)", value = 2000, min = 0, max = 10000),
-          numericInput("sugar", "Daily intake of added sugar (in gram)", value = 20, min = 0, max = 1000),
+          numericInput(
+            "kcal",
+            "Daily caloric intake (in kcal)",
+            value = 2000,
+            min = 0,
+            max = 10000
+          ),
+          numericInput(
+            "sugar",
+            "Daily intake of added sugar (in gram)",
+            value = 20,
+            min = 0,
+            max = 1000
+          ),
           helpText("E.g. sugar added to tea/coffee or snacks with added sugar."),
           
         ),
-        
         
         actionButton("predict", "Predict risk")
       )
@@ -1228,44 +1590,115 @@ server <- function(input, output, session) {
         selectInput(
           "prediction",
           "Selecteer voorspelling:",
-          choices = c("Diabetes", "Hoge bloeddruk", "Gewichtstoename", "Cholesterol", "Glucose")
+          choices = c(
+            "Diabetes",
+            "Hoge bloeddruk",
+            "Gewichtstoename",
+            "Cholesterol",
+            "Glucose"
+          )
           
         ),
-        
         
         # Shared inputs
-        numericInput("age", "Leeftijd (in jaren)", value = 40, min = 18, max = 100),
-        selectInput("gender", "Geslacht", choices = c("Vrouw" = 0, "Man" = 1)),
-        numericInput("body_height", "Lengte (in cm)", value = 180, min = 70, max = 250),
-        numericInput("body_weight", "Lichaamsgewicht (in kg)", value = 80, min = 30, max = 250),
-        numericInput("waist", "Omtrek taille (in cm)", value = 80, min = 40, max = 200),
-        numericInput("nova1", "Dagelijkse inname van onbewerkt voedsel (in gram)", value = 600, min = 0, max = 5000),
+        numericInput(
+          "age",
+          "Leeftijd (in jaren)",
+          value = 40,
+          min = 18,
+          max = 100
+        ),
+        selectInput("gender", "Geslacht", choices = c(
+          "Vrouw" = 0, "Man" = 1
+        )),
+        numericInput(
+          "body_height",
+          "Lengte (in cm)",
+          value = 180,
+          min = 70,
+          max = 250
+        ),
+        numericInput(
+          "body_weight",
+          "Lichaamsgewicht (in kg)",
+          value = 80,
+          min = 30,
+          max = 250
+        ),
+        numericInput(
+          "waist",
+          "Omtrek taille (in cm)",
+          value = 80,
+          min = 40,
+          max = 200
+        ),
+        numericInput(
+          "nova1",
+          "Dagelijkse inname van onbewerkt voedsel (in gram)",
+          value = 600,
+          min = 0,
+          max = 5000
+        ),
         helpText("Bijvoorbeeld groente en fruit."),
-        selectInput("zipcode", "Postcode (eerste 4 cijfers)", choices = zipcode_data$postcode),
-        
-        
-        conditionalPanel(
-          condition = "input.prediction == 'Hoge bloeddruk' || 
-                     input.prediction == 'Gewichtstoename' || 
-                     input.prediction == 'Cholesterol' || 
-                     input.prediction == 'Glucose'",
-          
-          numericInput("alcohol_intake", "Dagelijkse alcoholinname (per standaardglas)", value = 0, min = 0, max = 30),
-          helpText("1 standaardglas = 1 glas bier/wijn of 1 shot sterke drank")
-          
+        selectInput(
+          "zipcode",
+          "Postcode (eerste 4 cijfers)",
+          choices = zipcode_data$postcode
         ),
         
         conditionalPanel(
-          condition = " input.prediction == 'Gewichtstoename' || 
-          input.prediction == 'Cholesterol' || 
+          condition = "input.prediction == 'Hoge bloeddruk' ||
+                     input.prediction == 'Gewichtstoename' ||
+                     input.prediction == 'Cholesterol' ||
+                     input.prediction == 'Glucose'",
+          
+          numericInput(
+            "alcohol_intake",
+            "Dagelijkse alcoholinname (per standaardglas)",
+            value = 0,
+            min = 0,
+            max = 30
+          ),
+          helpText("1 standaardglas = 1 glas bier/wijn of 1 shot sterke drank")
+        ),
+        
+        conditionalPanel(
+          condition = " input.prediction == 'Gewichtstoename' ||
+          input.prediction == 'Cholesterol' ||
           input.prediction == 'Glucose' ",
           
-          numericInput("hip", "Heupomvang (in cm)", value = 90, min = 40, max = 200),
-          numericInput("nova4", "Dagelijkse inname van sterk bewerkt voedsel (in gram)", value = 500, min = 0, max = 5000),
+          numericInput(
+            "hip",
+            "Heupomvang (in cm)",
+            value = 90,
+            min = 40,
+            max = 200
+          ),
+          numericInput(
+            "nova4",
+            "Dagelijkse inname van sterk bewerkt voedsel (in gram)",
+            value = 500,
+            min = 0,
+            max = 5000
+          ),
           helpText("Bijvoorbeeld kant-en-klare maaltijden of chips"),
-          numericInput("kcal", "Dagelijkse inname van calorieën (in kcal)", value = 2000, min = 0, max = 10000),
-          numericInput("sugar", "Dagelijkse toegevoegde suiker (in gram)", value = 50, min = 0, max = 1000),
-          helpText("Bijvoorbeeld suiker in de thee/koffie of tussendoortjes met toegevoegde suikers"),
+          numericInput(
+            "kcal",
+            "Dagelijkse inname van calorieën (in kcal)",
+            value = 2000,
+            min = 0,
+            max = 10000
+          ),
+          numericInput(
+            "sugar",
+            "Dagelijkse toegevoegde suiker (in gram)",
+            value = 50,
+            min = 0,
+            max = 1000
+          ),
+          helpText(
+            "Bijvoorbeeld suiker in de thee/koffie of tussendoortjes met toegevoegde suikers"
+          ),
           
         ),
         actionButton("predict", "Voorspel waarde")
@@ -1274,15 +1707,9 @@ server <- function(input, output, session) {
     }
   })
   
-  
-  
   # Notes/limitations
   output$notes <- renderUI({
-    tagList(
-      p(tr("notes_generalize")),
-      p(tr("notes_not_medical")),
-      p(tr("notes_not_stored"))
-    )
+    tagList(p(tr("notes_generalize")), p(tr("notes_not_medical")), p(tr("notes_not_stored")))
   })
   
   output$tab_background_title <- renderUI({
@@ -1291,5 +1718,39 @@ server <- function(input, output, session) {
     } else {
       "Achtergrondinformatie"
     }
+    
   })
+  
+  output$tab_usage_title <- renderUI({
+    if (input$language == "en") {
+      "How to use"
+    } else {
+      "Gebruiksaanwijzing"
+    }
+  })
+  
+  output$result <- renderUI({
+    if (input$language == "en") {
+      "Result"
+    } else {
+      "Resultaat"
+    }
+  })
+  
+  output$notes_title <- renderUI({
+    if (input$language == "en") {
+      "Notes"
+    } else {
+      "Opmerkingen"
+    }
+  })
+  
+  output$tab_risk_title <- renderUI({
+    if (input$language == "en") {
+      "Risk prediction"
+    } else {
+      "Risicovoorspelling"
+    }
+  })
+  
 }

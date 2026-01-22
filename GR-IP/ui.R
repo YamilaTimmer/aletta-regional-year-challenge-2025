@@ -18,7 +18,7 @@ ui <- fluidPage(
     # TAB 1 — RISK PREDICTION
     # ============================================================
     tabPanel(
-      "Risk Prediction",
+      title = uiOutput("tab_risk_title"),
       
       sidebarLayout(
         sidebarPanel(
@@ -36,7 +36,7 @@ ui <- fluidPage(
         ),
         
         mainPanel(
-          h3("Result"),
+          h3(uiOutput("result")),
           uiOutput("warning_box"),
           
           conditionalPanel(
@@ -64,7 +64,7 @@ ui <- fluidPage(
           
           
           tags$hr(),
-          h4("Notes"),
+          h4(uiOutput("notes_title")),
           uiOutput("notes")
         )
       )
@@ -73,12 +73,19 @@ ui <- fluidPage(
     # ============================================================
     # TAB 2 — How to use
     # ============================================================
+    
     tabPanel(
-      title = "How to use",
+      title = uiOutput("tab_usage_title"),
       
-      # Background box
-      div(
-        style = "
+      # ============================
+      # ENGLISH VERSION
+      # ============================
+      conditionalPanel(
+        condition = "input.language == 'en'",
+        
+        # Background box
+        div(
+          style = "
       background-color: #f7f9fc;
       padding: 30px;
       border-radius: 12px;
@@ -86,48 +93,122 @@ ui <- fluidPage(
       margin: auto;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     ",
-        
-        # Title
-        h2("How to use the Prediction Tool", style = "font-weight: 700; margin-bottom: 20px;"),
-        
-        # Section 1
-        h3("Predictor variables", style = "margin-top: 25px;"),
-        p("Below a description can be found on all of the variables used to 
+          
+          # Title
+          h2("How to use the Prediction Tool", style = "font-weight: 700; margin-bottom: 20px;"),
+          
+          # Section 1
+          h3("Predictor variables", style = "margin-top: 25px;"),
+          p("Below a description can be found on all of the variables used to 
           predict risk/health outcomes. The different models each use different 
           variables."),
-        
-        tags$ul(
-          tags$li(tags$b("Age:"), " Age in years."),
-          tags$li(tags$b("Gender:"), " Biological sex (male/female)."),
-          tags$li(tags$b("Body length and weight:"), "Current length in cm and weight in kg."),
-          tags$li(tags$b("ZIP code:"), "The first four digits of a Dutch zipcode 
+          
+          tags$ul(
+            tags$li(tags$b("Age:"), " Age in years."),
+            tags$li(tags$b("Gender:"), " Biological sex (male/female)."),
+            tags$li(tags$b("Body length and weight:"), "Current length in cm and weight in kg."),
+            tags$li(tags$b("ZIP code:"), "The first four digits of a Dutch zipcode 
           in either Drenthe, Groningen or Friesland. E.g. for zipcode 9613 AL, '9613' has to be used.")
-        ),
-        
-        h4("Nutritional Variables", style = "margin-top: 20px; font-weight: bold;"),
-        
-        tags$ul(
-          tags$li(tags$b("Unprocessed food intake:"), " Average daily grams consumed of unprocessed foods. 
+          ),
+          
+          h4("Nutritional Variables", style = "margin-top: 20px; font-weight: bold;"),
+          
+          tags$ul(
+            tags$li(tags$b("Unprocessed food intake:"), " Average daily grams consumed of unprocessed foods. 
                   Such as fruits, vegetables, nuts, eggs and whole wheat products."),
-          tags$li(tags$b("Highly-processed food intake:"), " Average daily grams consumed of highly-processed 
+            tags$li(tags$b("Highly-processed food intake:"), " Average daily grams consumed of highly-processed 
                   foods. Such as ready meals, crisps, fastfood and chocolate."),
-          tags$li(tags$b("Alcohol intake:"), " Average number of standard drinks per day. One standard drink 
+            tags$li(tags$b("Alcohol intake:"), " Average number of standard drinks per day. One standard drink 
                   is equal to one glass of beer (250 mL), one glass of wine (100 mL) or 1 shot (35 mL
                   ) of strong liquor."),
-          tags$li(tags$b("Added sugar:"), " Average added sugar intake daily in grams. Added 
+            tags$li(tags$b("Added sugar:"), " Average added sugar intake daily in grams. Added 
                   sugars include sugar added to coffee/tea or non-naturally occuring sugars that were added 
                   during processing of the food item and are present in most snacks/sweets, soda and ice cream. 
                   Nutritional info on added sugar can be found on the packaging."),
-          tags$li(tags$b("Kcal intake:"), " Average number of calories consumed daily."),
+            tags$li(tags$b("Kcal intake:"), " Average number of calories consumed daily."),
+            
+            # Waist circumference item + image 
+            tags$li( tags$b("Waist/hip circumference:"), 
+                     " Measure using a measuring tape as illustrated below.", 
+                     tags$br(), tags$img(src = "measure.png", 
+                                         height = "250px", 
+                                         style = "margin-top:10px; border-radius:8px;") 
+            )
+          )
+        )
+      ),
+      
+      # ============================
+      # DUTCH VERSION
+      # ============================
+      conditionalPanel(
+        condition = "input.language == 'nl'",
+        
+        # Background box
+        div(
+          style = "
+      background-color: #f7f9fc;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 900px;
+      margin: auto;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    ",
           
-          # Waist circumference item + image 
-          tags$li( tags$b("Waist/hip circumference:"), 
-                   " Measure using a measuring tape as illustrated below.", 
-                   tags$br(), tags$img(src = "measure.png", 
-                                       height = "250px", 
-                                       style = "margin-top:10px; border-radius:8px;") 
+          # Title
+          h2("Hoe gebruik je de voorspellingstool", 
+             style = "font-weight: 700; margin-bottom: 20px;"),
+          
+          # Section 1
+          h3("Voorspellende variabelen", style = "margin-top: 25px;"),
+          p("Hieronder vind je een beschrijving van alle variabelen die worden gebruikt 
+          om risico’s en gezondheidsuitkomsten te voorspellen. Er wordt hiervoor gebruik gemaakt van 
+            verschillende machine learning modellen die verschillende variabelen gebruiken."),
+          
+          tags$ul(
+            tags$li(tags$b("Leeftijd:"), " Leeftijd in jaren."),
+            tags$li(tags$b("Geslacht:"), " Biologisch geslacht (man/vrouw)."),
+            tags$li(tags$b("Lengte en gewicht:"), " Huidige lengte in cm en gewicht in kg."),
+            tags$li(tags$b("Postcode:"), 
+                    " De eerste vier cijfers van een Nederlandse postcode in Drenthe, 
+            Groningen of Friesland. Bijvoorbeeld: bij postcode 9613 AL gebruik je '9613'.")
           ),
           
+          h4("Voedingsgerelateerde variabelen", 
+             style = "margin-top: 20px; font-weight: bold;"),
+          
+          tags$ul(
+            tags$li(tags$b("Inname van onbewerkt voedsel:"), 
+                    " Gemiddeld aantal grammen per dag van onbewerkte producten, zoals groente, 
+            fruit, noten, eieren en volkorenproducten."),
+            
+            tags$li(tags$b("Inname van sterk bewerkt voedsel:"), 
+                    " Gemiddeld aantal grammen per dag van sterk bewerkte producten, zoals 
+            kant-en-klare maaltijden, chips, fastfood en chocolade."),
+            
+            tags$li(tags$b("Alcoholinname:"), 
+                    " Gemiddeld aantal standaardglazen per dag. Eén standaardglas staat gelijk aan 
+            één glas bier (250 mL), één glas wijn (100 mL) of één shot (35 mL) sterke drank."),
+            
+            tags$li(tags$b("Toegevoegde suikers:"), 
+                    " Gemiddelde dagelijkse inname van toegevoegde suikers in grammen. Dit omvat o.a.
+            suiker die wordt toegevoegd aan koffie/thee of tijdens de verwerking van 
+            voedingsmiddelen, en komt voor in veel snacks, frisdrank en ijs. 
+            Voedingsinformatie over toegevoegde suikers staat op de verpakking."),
+            
+            tags$li(tags$b("Calorie-inname (kcal):"), 
+                    " Gemiddeld aantal calorieën dat dagelijks wordt geconsumeerd."),
+            
+            # Waist circumference item + image 
+            tags$li(
+              tags$b("Taille-/heupomtrek:"), 
+              " Meet dit met een meetlint zoals hieronder weergegeven.",
+              tags$br(),
+              tags$img(src = "measure.png",
+                       height = "250px",
+                       style = "margin-top:10px; border-radius:8px;")
+            )
+          )
         )
       )
     ),
@@ -225,6 +306,17 @@ ui <- fluidPage(
                 "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
                 target = "_blank"
               )
+            ),
+            tags$li(
+              "Voedingscentrum. (z.d.). BMI berekenen.",  
+              tags$a(
+                href = "https://www.voedingscentrum.nl/bmi",
+                "https://www.voedingscentrum.nl/bmi",
+                target = "_blank"
+              )
+            ),
+            tags$li(
+              "World Health Organization. (2011). Use of glycated haemoglobin (HbA1c) in the diagnosis of diabetes mellitus. World Health Organization."
             )
           )
         )
@@ -316,8 +408,20 @@ ui <- fluidPage(
                 "https://www.ncbi.nlm.nih.gov/books/NBK279318/",
                 target = "_blank"
               )
+            ),
+            tags$li(
+              "Voedingscentrum. (z.d.). BMI berekenen.", 
+              tags$a(
+                href = "https://www.voedingscentrum.nl/bmi",
+                "https://www.voedingscentrum.nl/bmi",
+                target = "_blank"
+              )
+            ),
+            tags$li(
+              "World Health Organization. (2011). Use of glycated haemoglobin (HbA1c) in the diagnosis of diabetes mellitus. World Health Organization."
             )
           )
+          
         )
       )
     )
