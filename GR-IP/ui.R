@@ -25,67 +25,16 @@ ui <- fluidPage(
           
           selectInput(
             "language",
-            "Language / Taal",
+            "Taal / Language",
             choices = c("English" = "en", "Nederlands" = "nl"),
-            selected = "en"
+            selected = "nl"
           ),
           
-          selectInput(
-            "prediction",
-            "Select prediction:",
-            choices = c("Diabetes", "Hypertension", "Weight Gain", "Cholesterol", "Glucose")
-          ),
-          
-          # Shared inputs
-          numericInput("age", "Age (years)", value = 40, min = 18, max = 100),
-          selectInput("gender", "Gender", choices = c("Female" = 0, "Male" = 1)),
-          numericInput("body_height", "Body length (cm)", value = 180, min = 70, max = 250),
-          numericInput("body_weight", "Body weight (kg)", value = 80, min = 30, max = 250),
-          numericInput("waist", "Waist circumference (cm)", value = 80, min = 40, max = 200),
-          numericInput("nova1", "NOVA group 1 intake (servings/day)", value = 5, min = 0, max = 30),
-          selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
+          uiOutput("sidebar_inputs")
           
           
-          conditionalPanel(
-            condition = "input.prediction == 'Hypertension'",
-            
-            numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
-            
-          ),
-          
-          conditionalPanel(
-            condition = "input.prediction == 'Weight Gain'",
-            
-            numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
-            numericInput("nova4", "NOVA group 4 intake (servings/day)", value = 5, min = 0, max = 30),
-            numericInput("kcal", "Kcal intake (avg/daily)", value = 2000, min = 0, max = 10000),
-            numericInput("sugar", "Added sugar (avg/daily)", value = 20, min = 0, max = 1000),
-            numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
-          ),
-          
-          conditionalPanel(
-            condition = "input.prediction == 'Cholesterol'",
-            
-            numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
-            numericInput("nova4", "NOVA group 4 intake (servings/day)", value = 5, min = 0, max = 30),
-            numericInput("kcal", "Kcal intake (avg/daily)", value = 2000, min = 0, max = 10000),
-            numericInput("sugar", "Added sugar (avg/daily)", value = 20, min = 0, max = 1000),
-            numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
-          ),
           
           
-          conditionalPanel(
-            condition = "input.prediction == 'Glucose'",
-            
-            numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
-            numericInput("nova4", "NOVA group 4 intake (servings/day)", value = 5, min = 0, max = 30),
-            numericInput("kcal", "Kcal intake (avg/daily)", value = 2000, min = 0, max = 10000),
-            numericInput("sugar", "Added sugar (avg/daily)", value = 20, min = 0, max = 1000),
-            numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
-            
-          ),
-          
-          actionButton("predict", "Predict")
         ),
         
         mainPanel(

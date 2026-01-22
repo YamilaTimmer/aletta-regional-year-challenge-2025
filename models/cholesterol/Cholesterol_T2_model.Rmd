@@ -1,0 +1,229 @@
+---
+  title: "skelleton code for neural network"
+author: "Fenna Feenstra"
+date: "2025-10-16"
+output: html_document
+---
+
+```{r}
+# -------------------------------------------------
+# 0. Packages
+# -------------------------------------------------
+library(tidyverse)   # read_csv, tibble, etc.
+library(caret)       # train / preProcess / dummyVars / createDataPartition
+library(nnet)        # method = "nnet"
+```
+
+```{r}
+# -------------------------------------------------
+# 1. Load the raw data and create the target
+# -------------------------------------------------
+df <- read_csv("~/Lifelines/aletta-regional-year-challenge-2025/data/data_of_interest.csv") %>%
+  filter(!is.na(cholesterol_1),
+         !is.na(cholesterol_2)) %>%
+  mutate(CHOL_2 = cholesterol_2)
+
+```
+
+```{r}
+# -------------------------------------------------
+# 2. Choose the predictors you really want
+# -------------------------------------------------
+predictor_vars <- c(
+  "age",
+  "gender",
+  "body_weight_1",
+  "body_length_1",
+  "longitude",
+  "circumference_waist_1",
+  "circumference_hip_1",
+  "kcal_intake",
+  "alcohol_intake",
+  "added_sugar",
+  "nova_foodintake_1",
+  "nova_foodintake_4"
+)
+
+df <- df %>% select(all_of(c(predictor_vars, "CHOL_2")))
+```
+
+```{r}
+# -------------------------------------------------
+# 3. Split into train / test (keep the outcome with the splits)
+# -------------------------------------------------
+set.seed(123)
+train_idx <- createDataPartition(df$CHOL_2, p = .8, list = FALSE)
+train_raw <- df[train_idx, ]
+test_raw  <- df[-train_idx, ]
+```
+
+```{r}
+# -------------------------------------------------
+# 4. Turn character columns into factors (needed for dummyVars)
+# -------------------------------------------------
+to_factor <- function(x) if (is.character(x)) as.factor(x) else x
+train_raw[] <- lapply(train_raw, to_factor)
+test_raw[]  <- lapply(test_raw,  to_factor)
+```
+
+```{r}
+# -------------------------------------------------
+# 5. Add an explicit “Missing” level to every factor
+# -------------------------------------------------
+add_missing_level <- function(dat) {
+  fac_cols <- sapply(dat, is.factor)
+  dat[fac_cols] <- lapply(dat[fac_cols], function(f) {
+    f <- addNA(f)                     # NA becomes a level
+    levels(f)[is.na(levels(f))] <- "Missing"
+    f
+  })
+  dat
+}
+train_raw <- add_missing_level(train_raw)
+test_raw  <- add_missing_level(test_raw)
+```
+
+```{r}
+# -------------------------------------------------
+# 6. ---------- PRE‑PROCESSING ----------
+# -------------------------------------------------
+# 6a. Separate predictors and outcome
+train_X <- train_raw %>% select(-CHOL_2)
+test_X  <- test_raw  %>% select(-CHOL_2)
+
+# 6b. One-hot encode predictors (factors -> numeric dummies)
+dummy_mod <- dummyVars(~ ., data = train_X, fullRank = FALSE)
+
+train_dum <- predict(dummy_mod, newdata = train_X) %>% as.data.frame()
+test_dum  <- predict(dummy_mod, newdata = test_X)  %>% as.data.frame()
+
+# 6c. Now preprocess numeric predictors (impute/scale/nzv)
+pp_obj <- preProcess(
+  train_dum,
+  method = c("nzv", "medianImpute", "center", "scale")
+)
+
+train_pp <- predict(pp_obj, train_dum)
+test_pp  <- predict(pp_obj, test_dum)
+
+# 6d. Reattach outcome
+train_enc <- train_pp
+test_enc  <- test_pp
+train_enc$CHOL_2 <- train_raw$CHOL_2
+test_enc$CHOL_2  <- test_raw$CHOL_2
+```
+
+```{r}
+# -------------------------------------------------
+# 7. Train the neural‑net
+# -------------------------------------------------
+set.seed(123)
+nnet_grid <- expand.grid(
+  size  = c(1, 5, 50),
+  decay = c(0.5, 1e-7)
+)
+
+nnet_model <- train(
+  CHOL_2 ~ .,
+  data        = train_enc,
+  method      = "nnet",
+  metric      = "RMSE",
+  tuneGrid    = nnet_grid,
+  trControl   = trainControl(method = "cv", number = 2),
+  linout      = TRUE,      # regression
+  trace       = TRUE      
+)
+
+```
+
+```{r}
+# -------------------------------------------------
+# 8. Quick sanity‑check on the hold‑out set
+# -------------------------------------------------
+test_pred <- predict(nnet_model, newdata = test_enc)
+
+rmse_test <- sqrt(mean((test_enc$CHOL_2 - test_pred)^2))
+mae_test  <- mean(abs(test_enc$CHOL_2 - test_pred))
+r2_test   <- cor(test_enc$CHOL_2, test_pred)^2
+
+cat("\n=== Test‑set performance ===\n")
+cat("RMSE :", round(rmse_test, 3), "\n")
+cat("MAE  :", round(mae_test, 3), "\n")
+cat("R²   :", round(r2_test, 3), "\n")
+
+ggplot(data = tibble(
+  observed = test_enc$CHOL_2,
+  predicted = test_pred
+),
+aes(x = observed, y = predicted)) +
+  geom_point(alpha = 0.6, colour = "#2C3E50") +
+  geom_abline(slope = 1, intercept = 0,
+              colour = "#E74C3C", linetype = "dashed", size = 0.8) +
+  labs(
+    title = "Observed vs. Predicted Cholesterol at T1 (Test Set)",
+    x = "Observed mmol/L",
+    y = "Predicted mmol/L"
+  ) +
+  theme_minimal(base_size = 13)
+
+
+```
+R2 = 0.15
+
+```{r}
+# -------------------------------------------------
+# 9. Save everything you’ll need for inference
+# -------------------------------------------------
+saveRDS(nnet_model,   "chol2_nnet_model.rds")
+saveRDS(dummy_mod,    "chol2_dummyVars.rds")
+saveRDS(pp_obj,       "chol2_preprocess.rds")
+saveRDS(predictor_vars, "chol2_predictor_vars.rds")
+
+```
+
+```{r}
+# -------------------------------------------------
+# 10. Helper for scoring a *single* new participant
+# -------------------------------------------------
+predict_CHOL_2 <- function(new_record) {
+  ## 10a. Load artefacts
+  model   <- readRDS("bodywt_nnet_model.rds")
+  dummy   <- readRDS("bodywt_dummyVars.rds")
+  pp      <- readRDS("bodywt_preprocess.rds")
+  
+  ## 10b. Make sure factor columns have the same levels as the training data
+  new_record[] <- lapply(new_record, function(x) {
+    if (is.character(x)) as.factor(x) else x
+  })
+  new_record <- add_missing_level(new_record)   # same helper as above
+  
+  ## 10c. Apply the *same* preprocessing (impute → centre → scale)
+  # Note: the preProcess object was built on predictor‑only data,
+  # so we can feed the raw new_record straight to it.
+  new_pp <- predict(pp, new_record)
+  
+  ## 10d. One‑hot encode the predictors
+  new_enc <- predict(dummy, new_pp) %>% as.data.frame()
+  
+  ## 10e. Predict the outcome
+  predict(model, newdata = new_enc)
+}
+
+```
+
+Predictors: "body_weight_T1", "body_weight_T2", "longitude"
+
+```{r}
+# -------------------------------------------------
+# 11. Example usage
+# -------------------------------------------------
+new_participant <- tibble(
+  age                = 20,
+  gender               = "MALE",   # must match a level seen in training
+  body_weight_T1 = 83,
+  longitude = 6.59
+)
+
+predicted_one <- predict_CHOL_2(new_participant)
+print(predicted_one)
+```

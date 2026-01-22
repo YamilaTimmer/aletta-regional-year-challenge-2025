@@ -9,13 +9,21 @@ body_wt_model <- readRDS("../models/bodyweight/bodywt_nnet_model.rds")
 body_wt_preproc <- readRDS("../models/bodyweight/bodywt_preprocess.rds") 
 body_wt_dummies <- readRDS("../models/bodyweight/bodywt_dummyVars.rds")
 
-cholesterol_model <- readRDS("../models/cholesterol/chol1_nnet_model.rds") 
-cholesterol_preproc <- readRDS("../models/cholesterol/chol1_preprocess.rds") 
-cholesterol_dummies <- readRDS("../models/cholesterol/chol1_dummyVars.rds")
+cholesterol_model_1 <- readRDS("../models/cholesterol/chol1_nnet_model.rds") 
+cholesterol_preproc_1 <- readRDS("../models/cholesterol/chol1_preprocess.rds") 
+cholesterol_dummies_1 <- readRDS("../models/cholesterol/chol1_dummyVars.rds")
 
-glucose_model <- readRDS("../models/glucose/glucose1_nnet_model.rds") 
-glucose_preproc <- readRDS("../models/glucose/glucose1_preprocess.rds") 
-glucose_dummies <- readRDS("../models/glucose/glucose1_dummyVars.rds")
+cholesterol_model_2 <- readRDS("../models/cholesterol/chol2_nnet_model.rds") 
+cholesterol_preproc_2 <- readRDS("../models/cholesterol/chol2_preprocess.rds") 
+cholesterol_dummies_2 <- readRDS("../models/cholesterol/chol2_dummyVars.rds")
+
+glucose_model_1 <- readRDS("../models/glucose/glucose1_nnet_model.rds") 
+glucose_preproc_1 <- readRDS("../models/glucose/glucose1_preprocess.rds") 
+glucose_dummies_1 <- readRDS("../models/glucose/glucose1_dummyVars.rds")
+
+glucose_model_2 <- readRDS("../models/glucose/glucose2_nnet_model.rds") 
+glucose_preproc_2 <- readRDS("../models/glucose/glucose2_preprocess.rds") 
+glucose_dummies_2 <- readRDS("../models/glucose/glucose2_dummyVars.rds")
 
 make_risk_plot <- function(
     risk_value,
@@ -102,11 +110,12 @@ server <- function(input, output, session) {
     en = list(
       
       # --- Generic phrases ---
-      your_predicted_diabetes_risk_is     = "Your predicted diabetes risk for the next 5-10 years is",
-      your_predicted_hypertension_risk_is = "Your predicted hypertension risk for the next 5-10 years is",
-      your_predicted_cholesterol_is       = "Your predicted cholesterol level for the next 5-10 years is",
-      your_predicted_glucose_is           = "Your predicted glucose level for the next 5-10 years is",
-      your_predicted_weight_gain_is       = "Your predicted weight gain for the next 5-10 years is",
+      your_predicted_diabetes_risk_is        = "Your predicted diabetes risk for the next 5-10 years is",
+      your_predicted_hypertension_risk_is    = "Your predicted hypertension risk for the next 5-10 years is",
+      your_current_predicted_cholesterol_is  = "Your current predicted cholesterol level is",
+      your_predicted_cholesterol_is          = "Your predicted cholesterol level for the next 5-10 years is",
+      your_predicted_glucose_is              = "Your predicted glucose level for the next 5-10 years is",
+      your_predicted_weight_gain_is          = "Your predicted weight gain for the next 5-10 years is",
       
       considered_low       = "This is considered low.",
       considered_elevated  = "This is considered elevated.",
@@ -195,11 +204,12 @@ server <- function(input, output, session) {
     nl = list(
       
       # --- Generic phrases ---
-      your_predicted_diabetes_risk_is     = "Uw voorspelde diabetesrisico voor de komende 5-10 jaar is",
-      your_predicted_hypertension_risk_is = "Uw voorspelde hypertensierisico voor de komende 5-10 jaar is",
-      your_predicted_cholesterol_is       = "Uw voorspelde cholesterolwaarde voor de komende 5-10 jaar is",
-      your_predicted_glucose_is           = "Uw voorspelde glucosewaarde voor de komende 5-10 jaar is",
-      your_predicted_weight_gain_is       = "Uw voorspelde gewichtstoename voor de komende 5-10 jaar is",
+      your_predicted_diabetes_risk_is        = "Uw voorspelde diabetesrisico voor de komende 5-10 jaar is",
+      your_predicted_hypertension_risk_is    = "Uw voorspelde hypertensierisico voor de komende 5-10 jaar is",
+      your_current_predicted_cholesterol_is  = "Uw huidige voorspelde cholesterolwaarde is",
+      your_predicted_cholesterol_is          = "Uw voorspelde cholesterolwaarde voor de komende 5-10 jaar is",
+      your_predicted_glucose_is              = "Uw voorspelde glucosewaarde voor de komende 5-10 jaar is",
+      your_predicted_weight_gain_is          = "Uw voorspelde gewichtstoename voor de komende 5-10 jaar is",
       
       considered_low       = "Dit wordt beschouwd als laag.",
       considered_elevated  = "Dit wordt beschouwd als verhoogd.",
@@ -741,7 +751,7 @@ server <- function(input, output, session) {
     
     
     # ============================================================
-    # Prediction 4 — CHOLESTEROL (TWEETALIG)
+    # Prediction 4 — CHOLESTEROL
     # ============================================================
     else if (input$prediction == "Cholesterol") {
       
@@ -760,11 +770,14 @@ server <- function(input, output, session) {
         added_sugar = input$sugar
       )
       
-      new_processed <- predict(cholesterol_preproc, new_person)
-      new_dummied <- predict(cholesterol_dummies, new_processed)
+      current_chol_processed <- predict(cholesterol_preproc_1, new_person)
+      current_chol_dummied <- predict(cholesterol_dummies_1, current_chol_processed)
+      current_cholesterol <- predict(cholesterol_model_1, current_chol_dummied)
       
-      cholesterol <- predict(cholesterol_model, new_dummied)
       
+      future_chol_processed <- predict(cholesterol_preproc_2, new_person)
+      future_chol_dummied <- predict(cholesterol_dummies_2, future_chol_processed)
+      future_cholesterol <- predict(cholesterol_model_2, future_chol_dummied)
       
       # ============================
       # CHOLESTEROL WARNING SYSTEM 
@@ -772,19 +785,22 @@ server <- function(input, output, session) {
       
       output$warning_box <- renderUI({
         
-        if (cholesterol < 5.2) {
+        if (current_cholesterol < 5.2 || future_cholesterol < 5.2) {
           
           div(
             style = "background-color:#e6ffe6; border-left:6px solid #009900;
                  padding:15px; margin-top:15px;",
             strong(paste0("✅ ", tr("warn_chol_optimal"), ": ")),
             paste0(
+              tr("your_current_predicted_cholesterol_is"), " ",
+              round(current_cholesterol, 2), " ", tr("unit_mmol_l"), ".",
+              
               tr("your_predicted_cholesterol_is"), " ",
-              round(cholesterol, 2), " ", tr("unit_mmol_l"), "."
+              round(future_cholesterol, 2), " ", tr("unit_mmol_l"), "."
             )
           )
           
-        } else if (cholesterol >= 6.2) {
+        } else if (current_cholesterol >= 6.2 || future_cholesterol >= 6.2) {
           
           # HIGH RISK
           div(
@@ -792,9 +808,11 @@ server <- function(input, output, session) {
                  padding:15px; margin-top:15px;",
             strong(paste0("⚠️ ", tr("warn_chol_high"), ": ")),
             paste0(
+              tr("your_current_predicted_cholesterol_is"), " ",
+              round(current_cholesterol, 2), " ", tr("unit_mmol_l"), ".",
+              
               tr("your_predicted_cholesterol_is"), " ",
-              round(cholesterol, 2), " ", tr("unit_mmol_l"), ". ",
-              tr("consult_specialist")
+              round(future_cholesterol, 2), " ", tr("unit_mmol_l"), "."
             )
           )
           
@@ -806,8 +824,11 @@ server <- function(input, output, session) {
                  padding:15px; margin-top:15px;",
             strong(paste0("⚠️ ", tr("warn_chol_elevated"), ": ")),
             paste0(
+              tr("your_current_predicted_cholesterol_is"), " ",
+              round(current_cholesterol, 2), " ", tr("unit_mmol_l"), ".",
+              
               tr("your_predicted_cholesterol_is"), " ",
-              round(cholesterol, 2), " ", tr("unit_mmol_l"), "."
+              round(future_cholesterol, 2), " ", tr("unit_mmol_l"), "."
             )
           )
         }
@@ -841,8 +862,8 @@ server <- function(input, output, session) {
           tr("chol_high")
         )
         
-        make_classification_plot(
-          value = cholesterol,
+        chol_plot <- make_classification_plot(
+          value = current_cholesterol,
           categories_df = chol_df,
           xlab = tr("msg_cholesterol"),
           title = tr("title_chol_plot"),
@@ -850,6 +871,27 @@ server <- function(input, output, session) {
           label_prefix = tr("msg_cholesterol"),
           colors = colors
         )
+        
+        
+        if (future_cholesterol < current_cholesterol) {
+          chol_plot +
+            geom_vline(xintercept = future_cholesterol, color = "blue", size = 2, linetype = "dashed") +
+            annotate("text", x = future_cholesterol - 0.5, y = 0.5,
+                     label = paste0(tr("msg_weight"), " ", round(future_cholesterol, 2)),
+                     size = 5, fontface = "bold", color = "blue", hjust = 1) +
+            annotate("text", x = current_cholesterol + 0.5, y = 0.5,
+                     label = paste0("Current cholesterol (predicted): ", round(current_cholesterol, 2)),
+                     size = 5, fontface = "bold", color = "black", hjust = 0)
+        } else {
+          chol_plot +
+            geom_vline(xintercept = future_cholesterol, color = "blue", size = 2, linetype = "dashed") +
+            annotate("text", x = future_cholesterol + 0.5, y = 0.5,
+                     label = paste0(tr("msg_weight"), " ", round(future_cholesterol, 2)),
+                     size = 5, fontface = "bold", color = "blue", hjust = 0) +
+            annotate("text", x = current_cholesterol - 0.5, y = 0.5,
+                     label = paste0("Current cholesterol (predicted): ", round(current_cholesterol, 2)),
+                     size = 5, fontface = "bold", color = "black", hjust = 1)
+        }
       })
     }
     
@@ -1003,7 +1045,7 @@ server <- function(input, output, session) {
       } else if (input$prediction == "Weight Gain") {
         paste0(round(predicted_weight - input$body_weight, 2), " kg")
       } else if (input$prediction == "Cholesterol") {
-        paste0(round(cholesterol, 2), " mmol/L")
+        paste0(round(current_cholesterol, 2), " mmol/L")
       } else if (input$prediction == "Glucose") {
         paste0(round(glucose, 2), " mmol/L")
         
@@ -1013,6 +1055,100 @@ server <- function(input, output, session) {
     
     
   })
+  
+  # Sidebar panel
+  
+  output$sidebar_inputs <- renderUI({
+    
+    if (input$language == "en") {
+      tagList(    
+        selectInput(
+          "prediction",
+          "Select prediction:",
+          choices = c("Diabetes", "Hypertension", "Weight Gain", "Cholesterol", "Glucose")
+        ),
+        
+        
+        # Shared inputs
+        numericInput("age", "Age (years)", value = 40, min = 18, max = 100),
+        selectInput("gender", "Gender", choices = c("Female" = 0, "Male" = 1)),
+        numericInput("body_height", "Body length (cm)", value = 180, min = 70, max = 250),
+        numericInput("body_weight", "Body weight (kg)", value = 80, min = 30, max = 250),
+        numericInput("waist", "Waist circumference (cm)", value = 80, min = 40, max = 200),
+        numericInput("nova1", "NOVA group 1 intake (servings/day)", value = 5, min = 0, max = 30),
+        selectInput("zipcode", "Zipcode (first 4 digits)", choices = zipcode_data$postcode),
+        
+        
+        conditionalPanel(
+          condition = "input.prediction == 'Hypertension'",
+          
+          numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
+          
+        ),
+        
+        conditionalPanel(
+          condition = "input.prediction == 'Weight Gain' || 
+                     input.prediction == 'Cholesterol' || 
+                     input.prediction == 'Glucose'",
+          
+          numericInput("hip", "Hip circumference (cm)", value = 90, min = 40, max = 200),
+          numericInput("nova4", "NOVA group 4 intake (servings/day)", value = 5, min = 0, max = 30),
+          numericInput("kcal", "Kcal intake (avg/daily)", value = 2000, min = 0, max = 10000),
+          numericInput("sugar", "Added sugar (avg/daily)", value = 20, min = 0, max = 1000),
+          numericInput("alcohol_intake", "Alcohol intake (avg servings/day)", value = 0, min = 0, max = 30),
+        ),
+        
+        
+        actionButton("predict", "Predict")
+      )
+    } else {
+      tagList(selectInput(
+        "prediction",
+        "Selecteer voorspelling:",
+        choices = c("Diabetes", "Hoge bloeddruk", "Gewichtstoename", "Cholesterol", "Glucose")
+      ),
+      
+      
+      # Shared inputs
+      numericInput("age", "Leeftijd (in jaren)", value = 40, min = 18, max = 100),
+      selectInput("gender", "Geslacht", choices = c("Vrouw" = 0, "Man" = 1)),
+      numericInput("body_height", "Lengte (in cm)", value = 180, min = 70, max = 250),
+      numericInput("body_weight", "Lichaamsgewicht (in kg)", value = 80, min = 30, max = 250),
+      numericInput("waist", "Omtrek taille (in cm)", value = 80, min = 40, max = 200),
+      numericInput("nova1", "Dagelijkse inname van onbewerkt voedsel (in gram)", value = 600, min = 0, max = 5000),
+      helpText("Bijvoorbeeld groente en fruit."),
+      selectInput("zipcode", "Postcode (eerste 4 cijfers)", choices = zipcode_data$postcode),
+      
+      
+      conditionalPanel(
+        condition = "input.prediction == 'Hoge bloeddruk' || 
+                     input.prediction == 'Gewichtstoename' || 
+                     input.prediction == 'Cholesterol' || 
+                     input.prediction == 'Glucose'",
+        
+        numericInput("alcohol_intake", "Dagelijkse alcoholinname (per standaardglas)", value = 0, min = 0, max = 30),
+        helpText("1 standaardglas = 1 glas bier/wijn of 1 shot sterke drank")
+        
+      ),
+      
+      conditionalPanel(
+        condition = "input.prediction == 'Gewichtstoename' || input.prediction == 'Cholesterol' || input.prediction == 'Glucose'",
+        
+        numericInput("hip", "Heupomvang (in cm)", value = 90, min = 40, max = 200),
+        numericInput("nova4", "Dagelijkse inname van sterk bewerkt voedsel (in gram)", value = 500, min = 0, max = 5000),
+        helpText("Bijvoorbeeld kant-en-klare maaltijden of chips"),
+        numericInput("kcal", "Dagelijkse inname van calorieën (in kcal)", value = 2000, min = 0, max = 10000),
+        numericInput("sugar", "Dagelijkse toegevoegde suiker (in gram)", value = 50, min = 0, max = 1000),
+        helpText("Bijvoorbeeld suiker in de thee/koffie of tussendoortjes met toegevoegde suikers"),
+        
+      ),
+      actionButton("predict", "Voorspel")
+      
+      )
+    }
+  })
+  
+  
   
   # Notes/limitations
   output$notes <- renderUI({
