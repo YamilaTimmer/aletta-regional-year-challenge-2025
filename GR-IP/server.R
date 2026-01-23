@@ -1753,4 +1753,13 @@ server <- function(input, output, session) {
     }
   })
   
+  output$app_title <- renderUI({
+    if (input$language == "en") {
+      "Groningen Risk‑Insight for Prevention (GR-IP)"
+    } else {
+      "Groningen Risico‑Inzicht voor Preventie (GR-IP)"
+    }
+  })
+  
+  
 }

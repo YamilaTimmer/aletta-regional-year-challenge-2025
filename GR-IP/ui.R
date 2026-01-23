@@ -8,7 +8,7 @@ ui <- fluidPage(
     div(
       style = "display: flex; align-items: center;",
       tags$img(src = "logo.png", height = "80px", style = "margin-right: 15px;"),
-      h2("Groningen Risk‑Insight for Prevention (GR-IP)")
+      h2(uiOutput("app_title"))
     )
   ),
   
@@ -97,11 +97,15 @@ ui <- fluidPage(
           # Title
           h2("How to use the Prediction Tool", style = "font-weight: 700; margin-bottom: 20px;"),
           
+          p("Under the 'Risk Prediction' tab, select a variable to predict and fill in 
+          all the inputs in the sidebar and click the predict button to get a personalised 
+          prediction of a selected health outcome."),
+          
           # Section 1
           h3("Predictor variables", style = "margin-top: 25px;"),
           p("Below a description can be found on all of the variables used to 
-          predict risk/health outcomes. The different models each use different 
-          variables."),
+          predict risk/health outcomes. This app uses various machine learning 
+          models that use the variables below to predict outcomes."),
           
           tags$ul(
             tags$li(tags$b("Age:"), " Age in years."),
@@ -131,7 +135,7 @@ ui <- fluidPage(
             tags$li( tags$b("Waist/hip circumference:"), 
                      " Measure using a measuring tape as illustrated below.", 
                      tags$br(), tags$img(src = "measure.png", 
-                                         height = "250px", 
+                                         height = "300px", 
                                          style = "margin-top:10px; border-radius:8px;") 
             )
           )
@@ -158,6 +162,10 @@ ui <- fluidPage(
           # Title
           h2("Hoe gebruik je de voorspellingstool", 
              style = "font-weight: 700; margin-bottom: 20px;"),
+          
+          p("Selecteer een variabele om te voorspellen in het 'Risicovoorspelling' 
+          tabblad, vul alle invoervelden van de zijbalk in en klik de 'Voorspel waarde' knop
+          om een gepersonaliseerde voorspelling te ontvangen van de geselecteerde variabele."),
           
           # Section 1
           h3("Voorspellende variabelen", style = "margin-top: 25px;"),
@@ -205,7 +213,7 @@ ui <- fluidPage(
               " Meet dit met een meetlint zoals hieronder weergegeven.",
               tags$br(),
               tags$img(src = "measure.png",
-                       height = "250px",
+                       height = "300px",
                        style = "margin-top:10px; border-radius:8px;")
             )
           )
@@ -342,7 +350,7 @@ ui <- fluidPage(
           
           tags$blockquote(
             style = "font-style: italic; color: #555; margin-top: 10px;",
-            "GR-IP: Een interactieve risicovoorspellende app die mensen helpt grip te krijgen op hun voedselomgeving."
+            "GR-IP: Een interactieve risicovoorspellende app die mensen helpt GRIP te krijgen op hun voedselomgeving."
           ),
           
           h3("Wat deze tool doet", style = "margin-top: 25px;"),
